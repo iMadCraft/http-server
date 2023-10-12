@@ -8,7 +8,7 @@ class HttpResponseImpl extends AbstractHttpPacket implements HttpResponse {
         this.code = builder.code;
     }
 
-    static Builder builder(HttpRequest from) {
+    static HttpResponse.Builder builder(HttpRequest from) {
         return new Builder(from);
     }
 

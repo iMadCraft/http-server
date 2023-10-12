@@ -20,14 +20,10 @@ class HttpServerImpl implements HttpServer {
 
     HttpServerImpl(HttpServerContext context) {
         this.context = context;
-        this.parser = context.parser();
-        this.serializer = context.serializer();
-    }
-
-    public static void main(String[] args) throws HttpServerException {
-        var context = HttpServerContext.builder();
-        var server = HttpServer.create(context.build());
-        server.start();
+        this.parser = context.parser()
+                .orElse(new HttpParserImpl());
+        this.serializer = context.serializer()
+                .orElse(new HttpSerializerImpl());
     }
 
     @Override
@@ -63,7 +59,7 @@ class HttpServerImpl implements HttpServer {
 
                 final var date = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss")
                         .format(Calendar.getInstance().getTime());
-                final var builder = HttpResponse.builder(request)
+                final var builder = HttpResponseImpl.builder(request)
                         .withResponseCode(200)
                         .addHeader(HttpHeader.create("Content-Type", "text/html"))
                         .addHeader(HttpHeader.create("Server", "Demo Server"))
@@ -122,11 +118,3 @@ class HttpServerImpl implements HttpServer {
         return builder.build();
     }
 }
-
-// System.out.println("Request");
-// System.out.println("   Method: " + request.method().name());
-// System.out.println("   URL: " + request.url());
-// System.out.println("   Version: " + request.version());
-// for (final var header: request.headers())  {
-// System.out.printf("   %.4096s: %.4096s%n", header.name(), header.value());
-// }

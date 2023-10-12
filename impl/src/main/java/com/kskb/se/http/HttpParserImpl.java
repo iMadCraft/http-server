@@ -6,12 +6,12 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.List;
 
-public class HttpParserImpl implements HttpParser {
+class HttpParserImpl implements HttpParser {
     private static final List<String> SUPPORTED_VERSION = List.of("1.0", "1.1", "1.2", "1.3");
 
     @Override
     public HttpRequest parse(InputStream inputStream) throws HttpServerException {
-        var builder = HttpRequest.builder();
+        var builder = HttpRequestImpl.builder();
         var input = new BufferedReader(new InputStreamReader(inputStream));
 
         // NOTE: Not the best parse, The HTTP standard specifies 0x0D, 0x0A

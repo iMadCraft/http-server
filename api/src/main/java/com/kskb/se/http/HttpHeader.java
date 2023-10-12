@@ -11,3 +11,5 @@ public interface HttpHeader {
 
     String value();
 }
+
+record HttpHeaderImpl(String name, String value) implements HttpHeader {}

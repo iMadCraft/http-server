@@ -1,11 +1,7 @@
 package com.kskb.se.http;
 
 public interface HttpServer {
-    int DEFAULT_PORT = 8080;
-
-    static HttpServer create(HttpServerContext context) {
-        return new HttpServerImpl(context);
-    }
+    int DEFAULT_PORT = 8081;
 
     void start() throws HttpServerException;
 

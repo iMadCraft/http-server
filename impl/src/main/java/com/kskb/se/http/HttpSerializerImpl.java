@@ -3,7 +3,7 @@ package com.kskb.se.http;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 
-public class HttpSerializerImpl implements HttpSerializer {
+class HttpSerializerImpl implements HttpSerializer {
     @Override
     public void serialize(OutputStream output, HttpResponse response) throws HttpServerException {
         final var writer = new PrintWriter(output);
@@ -15,10 +15,3 @@ public class HttpSerializerImpl implements HttpSerializer {
         writer.flush();
     }
 }
-
-/**
- * HTTP/2 200 OK
- * content-type: text/html
- * server: Microsoft-IIS/8.5
- * date: Thu, 12 Oct 2023 18:34:44 GMT
- **/

@@ -5,7 +5,7 @@ class HttpRequestImpl extends AbstractHttpPacket implements HttpRequest {
         super(builder);
     }
 
-    static Builder builder() {
+    static HttpRequest.Builder builder() {
         return new Builder();
     }
 

@@ -1,6 +1,27 @@
 package com.kskb.se.http;
 
-public class HttpServerContextImpl implements HttpServerContext {
+import java.util.Optional;
+
+public interface HttpServerContext {
+
+    static Builder builder() {
+        return HttpServerContextImpl.builder();
+    }
+
+    int port();
+
+    Optional<HttpParser> parser();
+
+    Optional<HttpSerializer> serializer();
+
+    interface Builder {
+        Builder withPort(int port);
+
+        HttpServerContext build();
+    }
+}
+
+class HttpServerContextImpl implements HttpServerContext {
     private final int port;
     private final HttpParser parser;
     private final HttpSerializer serializer;
@@ -21,13 +42,13 @@ public class HttpServerContextImpl implements HttpServerContext {
     }
 
     @Override
-    public HttpParser parser() {
-        return this.parser;
+    public Optional<HttpParser> parser() {
+        return Optional.ofNullable(this.parser);
     }
 
     @Override
-    public HttpSerializer serializer() {
-        return this.serializer;
+    public Optional<HttpSerializer> serializer() {
+        return Optional.ofNullable(this.serializer);
     }
 
     static class Builder implements HttpServerContext.Builder {
@@ -43,10 +64,6 @@ public class HttpServerContextImpl implements HttpServerContext {
 
         @Override
         public HttpServerContext build() {
-            if (parser == null)
-                parser = new HttpParserImpl();
-            if (serializer == null)
-                serializer = new HttpSerializerImpl();
             return new HttpServerContextImpl(this);
         }
     }

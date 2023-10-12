@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public abstract class AbstractHttpPacket implements HttpPacket {
+ abstract class AbstractHttpPacket implements HttpPacket {
     private final HttpMethod method;
     private final String version;
     private final String url;
@@ -55,9 +55,11 @@ public abstract class AbstractHttpPacket implements HttpPacket {
         }
 
         protected Builder(HttpRequest from) {
-            this.method = from.method();
-            this.url = from.url();
-            this.version = from.version();
+            if (from != null) {
+                this.method = from.method();
+                this.url = from.url();
+                this.version = from.version();
+            }
         }
 
         @Override
