@@ -32,6 +32,9 @@ class HttpResponseImpl extends AbstractHttpPacket implements HttpResponse {
 
         @Override
         public HttpResponse build() {
+            if (payload != null && ! payload.isEmpty()) {
+                addHeader(HttpHeader.create("Content-Length", String.valueOf(payload.length())));
+            }
             return new HttpResponseImpl(this);
         }
     }

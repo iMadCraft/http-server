@@ -14,6 +14,7 @@ class HttpServerImpl implements HttpServer {
     private final HttpServerContext context;
     private final HttpParser parser;
     private final HttpSerializer serializer;
+    private final HttpEndPoints endPoints = HttpEndPoints.create();
 
     private HttpServerState state = HttpServerState.INITIALIZED;
     private ServerSocket serverSocket;
@@ -46,6 +47,11 @@ class HttpServerImpl implements HttpServer {
         state = HttpServerState.STOP;
     }
 
+    @Override
+    public HttpEndPoints endPoints() {
+        return this.endPoints;
+    }
+
     private void run() throws HttpServerException {
         // In case a error-loop occur
         int errorCounter = 0;
@@ -54,25 +60,36 @@ class HttpServerImpl implements HttpServer {
             try {
                 System.out.println("Listening to client ...");
                 final HttpConnection connection = accept();
-                System.out.println("Received request");
                 final HttpRequest request = parser.parse(connection.input());
+                System.out.println("Request " + request.method().name() + " " + request.url());
 
                 final var date = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss")
                         .format(Calendar.getInstance().getTime());
+
                 final var builder = HttpResponseImpl.builder(request)
                         .withResponseCode(200)
                         .addHeader(HttpHeader.create("Content-Type", "text/html"))
                         .addHeader(HttpHeader.create("Server", "Demo Server"))
                         .addHeader(HttpHeader.create("Date", date + " CET"));
 
-                if (ROOT_INDEX_TARGETS.contains(request.url())) {
-                    final var payload = String.format("<html><body><h1>%s</h1><p>%s</p></body></html>", "Hello world", date);
-                    builder.addHeader(HttpHeader.create("Content-Length", String.valueOf(payload.length())))
-                            .withPayload(payload);
+                HttpEndPointContext endPointContext = HttpEndPointContext.builder()
+                   .withRequest(request)
+                   .withResponseBuilder(builder)
+                   .build();
+
+                final var matches = endPoints.match(request);
+                for(HttpEndPoint endPoint: matches) {
+                    endPoint.handle(endPointContext);
                 }
 
-                System.out.println("Send response");
-                serializer.serialize(connection.output(), builder.build());
+                if( ! matches.iterator().hasNext() ) {
+                    builder.withResponseCode(404)
+                       .withPayload(DEFAULT_PAGE_404);
+                }
+
+                final var response = builder.build();
+                System.out.println("Respond with " + response.code());
+                serializer.serialize(connection.output(), response);
                 connection.close();
 
                 // Reset error counter
@@ -117,4 +134,12 @@ class HttpServerImpl implements HttpServer {
 
         return builder.build();
     }
+
+    private static final String DEFAULT_PAGE_404 = """
+    <html>
+    <body>
+        <h1>Page Not Found: 404</h1>
+    </body>
+    </html>
+    """;
 }

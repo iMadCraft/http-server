@@ -49,7 +49,7 @@ import java.util.List;
         private HttpMethod method;
         private String url;
         private String version;
-        private String payload;
+        protected String payload;
 
         protected Builder() {
         }
