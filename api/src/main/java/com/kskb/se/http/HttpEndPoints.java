@@ -1,7 +1,6 @@
 package com.kskb.se.http;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public interface HttpEndPoints extends Iterable<HttpEndPoint> {
     void add(HttpMethod method, List<String> url, HttpEndPoint handler);
@@ -19,12 +18,35 @@ class HttpEndPointsImpl implements HttpEndPoints {
     @Override
     public Iterable<HttpEndPoint> match(HttpRequest request) {
         List<HttpEndPoint> matches = new ArrayList<>();
+
+        // Direct matching
         for (EndPointEntry entry: entryList) {
             final boolean condition =
                entry.method == request.method() &&
                   entry.url.contains(request.url());
             if(condition)
                 matches.add(entry.endPoint);
+        }
+
+        // Wildcard matching, if no direct matching found
+        if (matches.isEmpty()) {
+            for (EndPointEntry entry: entryList) {
+                if (entry.method == request.method()) {
+                    for (final String url: entry.url) {
+                        // All match
+                        if("*".equals(url)) {
+                            if (entry.url.contains(request.url()))
+                                matches.add(entry.endPoint);
+                        }
+                        // Wildcard match
+                        else if( url.endsWith("*") ) {
+                            final String trimmedUrl = url.substring(0, url.length() - 2);
+                            if(request.url().startsWith(trimmedUrl))
+                                matches.add(entry.endPoint);
+                        }
+                    }
+                }
+            }
         }
         return Collections.unmodifiableList(matches);
     }

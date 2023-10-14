@@ -22,9 +22,7 @@ $ java -jar bin/http-server.jar
 
 Command:
 
-<code>
-% curl -i http://localhost:8081/index.html
-</code>
+<code>$ curl -i http://localhost:8081/index.html </code>
 
 Output:
 
@@ -45,9 +43,7 @@ Content-Length: 84
 
 Command:
 
-<code>
-% curl -i http://localhost:8081/test.html
-</code>
+<code>$ curl -i http://localhost:8081/test.html </code>
 
 Output:
 

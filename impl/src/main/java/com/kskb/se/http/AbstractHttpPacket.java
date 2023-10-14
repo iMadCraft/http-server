@@ -62,7 +62,17 @@ import java.util.List;
             }
         }
 
-        @Override
+       @Override
+       public HttpMethod method() {
+          return this.method;
+       }
+
+       @Override
+       public String url() {
+          return this.url;
+       }
+
+       @Override
         public T withMethod(HttpMethod method) {
             this.method = method;
             return castThis();

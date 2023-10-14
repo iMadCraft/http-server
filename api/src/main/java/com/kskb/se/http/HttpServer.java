@@ -1,5 +1,6 @@
 package com.kskb.se.http;
 
+import java.util.Calendar;
 import java.util.List;
 
 public interface HttpServer {
@@ -8,6 +9,8 @@ public interface HttpServer {
     void start() throws HttpServerException;
 
     void stop() throws HttpServerException;
+
+    HttpRewriters rewriters();
 
     HttpEndPoints endPoints();
 

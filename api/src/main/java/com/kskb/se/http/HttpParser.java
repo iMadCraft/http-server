@@ -3,5 +3,5 @@ package com.kskb.se.http;
 import java.io.InputStream;
 
 public interface HttpParser {
-    HttpRequest parse(InputStream input) throws HttpServerException;
+    void parse(HttpRequest.Builder builder, InputStream input) throws HttpServerException;
 }

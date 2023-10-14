@@ -11,12 +11,14 @@
         <com.kskb.se.http.api.version>0.1.0</com.kskb.se.http.api.version>
         <com.kskb.se.http.impl.version>0.1.0</com.kskb.se.http.impl.version>
         <com.kskb.se.http.cli.version>0.1.0</com.kskb.se.http.cli.version>
+        <com.kskb.se.http.demo.version>0.1.0</com.kskb.se.http.demo.version>
     </properties>
 
     <modules>
         <module>api</module>
         <module>impl</module>
         <module>cli</module>
+        <module>sample</module>
     </modules>
 
     <dependencyManagement>

@@ -10,8 +10,7 @@ class HttpParserImpl implements HttpParser {
     private static final List<String> SUPPORTED_VERSION = List.of("1.0", "1.1", "1.2", "1.3");
 
     @Override
-    public HttpRequest parse(InputStream inputStream) throws HttpServerException {
-        var builder = HttpRequestImpl.builder();
+    public void parse(HttpRequest.Builder builder, InputStream inputStream) throws HttpServerException {
         var input = new BufferedReader(new InputStreamReader(inputStream));
 
         // NOTE: Not the best parse, The HTTP standard specifies 0x0D, 0x0A
@@ -58,7 +57,5 @@ class HttpParserImpl implements HttpParser {
         } catch (IOException e) {
             throw new HttpServerException("Unable to parse client request", e);
         }
-
-        return builder.build();
     }
 }

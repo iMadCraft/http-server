@@ -15,6 +15,7 @@ class HttpServerImpl implements HttpServer {
     private final HttpParser parser;
     private final HttpSerializer serializer;
     private final HttpEndPoints endPoints = HttpEndPoints.create();
+    private final HttpRewriters rewriters = HttpRewriters.create();
 
     private HttpServerState state = HttpServerState.INITIALIZED;
     private ServerSocket serverSocket;
@@ -22,9 +23,9 @@ class HttpServerImpl implements HttpServer {
     HttpServerImpl(HttpServerContext context) {
         this.context = context;
         this.parser = context.parser()
-                .orElse(new HttpParserImpl());
+           .orElse(new HttpParserImpl());
         this.serializer = context.serializer()
-                .orElse(new HttpSerializerImpl());
+           .orElse(new HttpSerializerImpl());
     }
 
     @Override
@@ -52,6 +53,11 @@ class HttpServerImpl implements HttpServer {
         return this.endPoints;
     }
 
+    @Override
+    public HttpRewriters rewriters() {
+        return this.rewriters;
+    }
+
     private void run() throws HttpServerException {
         // In case a error-loop occur
         int errorCounter = 0;
@@ -60,21 +66,35 @@ class HttpServerImpl implements HttpServer {
             try {
                 System.out.println("Listening to client ...");
                 final HttpConnection connection = accept();
-                final HttpRequest request = parser.parse(connection.input());
-                System.out.println("Request " + request.method().name() + " " + request.url());
+                final HttpRequest.Builder requestBuilder = HttpRequestImpl.builder();
+                final HttpResponse.Builder responseBuilder = HttpResponseImpl.builder();
 
+                parser.parse(requestBuilder, connection.input());
+                System.out.println("Request " + requestBuilder.method().name() + " " + requestBuilder.url());
+
+                HttpRewriterContext rewriterContext = HttpRewriterContextImpl.builder()
+                   .withRequestBuilder(requestBuilder)
+                   .withResponseBuilder(responseBuilder)
+                   .build();
+                for(final HttpRewriter rewriter: rewriters) {
+                    rewriter.modify(rewriterContext);
+                }
+
+                final HttpRequest request = requestBuilder.build();
                 final var date = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss")
-                        .format(Calendar.getInstance().getTime());
+                   .format(Calendar.getInstance().getTime());
 
-                final var builder = HttpResponseImpl.builder(request)
-                        .withResponseCode(200)
-                        .addHeader(HttpHeader.create("Content-Type", "text/html"))
-                        .addHeader(HttpHeader.create("Server", "Demo Server"))
-                        .addHeader(HttpHeader.create("Date", date + " CET"));
+                responseBuilder.withMethod(request.method())
+                   .withUrl(request.url())
+                   .withVersion(request.version())
+                   .withResponseCode(200)
+                   .addHeader(HttpHeader.create("Content-Type", "text/html"))
+                   .addHeader(HttpHeader.create("Server", "Demo Server"))
+                   .addHeader(HttpHeader.create("Date", date + " CET"));
 
-                HttpEndPointContext endPointContext = HttpEndPointContext.builder()
+                final HttpEndPointContext endPointContext = HttpEndPointContext.builder()
                    .withRequest(request)
-                   .withResponseBuilder(builder)
+                   .withResponseBuilder(responseBuilder)
                    .build();
 
                 final var matches = endPoints.match(request);
@@ -83,13 +103,15 @@ class HttpServerImpl implements HttpServer {
                 }
 
                 if( ! matches.iterator().hasNext() ) {
-                    builder.withResponseCode(404)
+                    responseBuilder.withResponseCode(404)
                        .withPayload(DEFAULT_PAGE_404);
                 }
 
-                final var response = builder.build();
+                final var response = responseBuilder.build();
                 System.out.println("Respond with " + response.code());
+
                 serializer.serialize(connection.output(), response);
+
                 connection.close();
 
                 // Reset error counter

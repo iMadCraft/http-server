@@ -1,16 +1,16 @@
 package com.kskb.se.http;
 
-public interface HttpEndPointContext {
+public interface HttpRewriterContext {
     HttpMethod method();
 
     String url();
 
-    HttpRequest request();
+    HttpRequest.Builder request();
 
     HttpResponse.Builder response();
 
     static Builder builder() {
-        return HttpEndPointContextImpl.builder();
+        return HttpRewriterContextImpl.builder();
     }
 
     interface Builder {
@@ -18,22 +18,22 @@ public interface HttpEndPointContext {
 
         Builder withUrl(String url);
 
-        Builder withRequest(HttpRequest request);
+        Builder withRequestBuilder(HttpRequest.Builder request);
 
         Builder withResponseBuilder(HttpResponse.Builder response);
 
-        HttpEndPointContext build();
+        HttpRewriterContext build();
     }
 }
 
-class HttpEndPointContextImpl implements HttpEndPointContext {
+class HttpRewriterContextImpl implements HttpRewriterContext {
 
     private final HttpMethod method;
     private final String url;
-    private final HttpRequest request;
+    private final HttpRequest.Builder request;
     private final HttpResponse.Builder response;
 
-    public HttpEndPointContextImpl(Builder builder) {
+    private HttpRewriterContextImpl(Builder builder) {
         this.method = builder.method;
         this.url = builder.url;
         this.request = builder.request;
@@ -51,7 +51,7 @@ class HttpEndPointContextImpl implements HttpEndPointContext {
     }
 
     @Override
-    public HttpRequest request() {
+    public HttpRequest.Builder request() {
         return this.request;
     }
 
@@ -60,16 +60,16 @@ class HttpEndPointContextImpl implements HttpEndPointContext {
         return this.response;
     }
 
-    static HttpEndPointContext.Builder builder() {
+    static HttpRewriterContext.Builder builder() {
         return new Builder();
     }
 
-    private static class Builder implements HttpEndPointContext.Builder {
+    private static class Builder implements HttpRewriterContext.Builder {
 
         private HttpResponse.Builder response;
         private HttpMethod method;
         private String url;
-        private HttpRequest request;
+        private HttpRequest.Builder request;
 
         @Override
         public Builder withMethod(HttpMethod method) {
@@ -84,7 +84,7 @@ class HttpEndPointContextImpl implements HttpEndPointContext {
         }
 
         @Override
-        public Builder withRequest(HttpRequest request) {
+        public Builder withRequestBuilder(HttpRequest.Builder request) {
             this.request = request;
             return this;
         }
@@ -96,14 +96,14 @@ class HttpEndPointContextImpl implements HttpEndPointContext {
         }
 
         @Override
-        public HttpEndPointContext build() {
+        public HttpRewriterContext build() {
             assert request != null;
             assert response != null;
             method = method != null ?
                method : request.method();
             url = url != null ?
                url : request.url();
-            return new HttpEndPointContextImpl(this);
+            return new HttpRewriterContextImpl(this);
         }
     }
 }

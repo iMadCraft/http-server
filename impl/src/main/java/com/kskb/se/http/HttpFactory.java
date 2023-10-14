@@ -7,11 +7,11 @@ public class HttpFactory {
     }
 
     public static HttpResponse.Builder createResponseBuilder() {
-        return HttpResponseImpl.builder(null);
+        return HttpResponseImpl.builder();
     }
 
     public static HttpResponse.Builder createResponseBuilder(HttpRequest from) {
-        return HttpResponseImpl.builder(from);
+        return HttpResponseImpl.builder();
     }
 
     public static HttpServer createServer(HttpServerContext context) {
