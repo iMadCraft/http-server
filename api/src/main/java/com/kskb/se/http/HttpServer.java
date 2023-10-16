@@ -17,4 +17,6 @@ public interface HttpServer {
     default void add(HttpMethod method, List<String> url, HttpEndPoint handler) {
         this.endPoints().add(method, url, handler);
     }
+
+   HttpResourceLoader resourceLoader();
 }

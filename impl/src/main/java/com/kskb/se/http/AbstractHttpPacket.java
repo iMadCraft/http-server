@@ -49,7 +49,7 @@ import java.util.List;
         private HttpMethod method;
         private String url;
         private String version;
-        protected String payload;
+        private String payload;
 
         protected Builder() {
         }
@@ -70,6 +70,16 @@ import java.util.List;
        @Override
        public String url() {
           return this.url;
+       }
+
+       @Override
+       public String payload() {
+          return this.payload;
+       }
+
+       @Override
+       public boolean hasPayload() {
+          return this.payload != null && ! this.payload.isEmpty();
        }
 
        @Override

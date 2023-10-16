@@ -4,9 +4,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
 
-@interface Stringable {}
+import static com.kskb.se.http.HttpResourceLocation.HTML;
+import static com.kskb.se.http.HttpResourceType.TEXT;
 
-public interface HttpTemplate {
+@HttpResourceProperty(location = HTML, type = TEXT)
+public interface HttpTemplate extends HttpResource {
    void bind(String label, @Stringable Object value);
    void bind(String label, @Stringable Supplier<Object> value);
 

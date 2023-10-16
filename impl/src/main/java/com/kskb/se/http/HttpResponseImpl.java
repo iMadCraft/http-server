@@ -33,6 +33,11 @@ class HttpResponseImpl extends AbstractHttpPacket implements HttpResponse {
         }
 
         @Override
+        public int code() {
+            return this.code;
+        }
+
+        @Override
         public HttpResponse.Builder withResponseCode(int code) {
             this.code = code;
             return this;
@@ -46,8 +51,8 @@ class HttpResponseImpl extends AbstractHttpPacket implements HttpResponse {
 
         @Override
         public HttpResponse build() {
-            if (payload != null && ! payload.isEmpty()) {
-                addHeader(HttpHeader.create("Content-Length", String.valueOf(payload.length())));
+            if (hasPayload()) {
+                addHeader(HttpHeader.create("Content-Length", String.valueOf(payload().length())));
             }
             return new HttpResponseImpl(this);
         }

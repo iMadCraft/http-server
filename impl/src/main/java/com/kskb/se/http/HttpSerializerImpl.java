@@ -13,7 +13,9 @@ class HttpSerializerImpl implements HttpSerializer {
         for (final var header : response.headers()) {
             writer.printf("%s: %s%c%c", header.name(), header.value(), 0x0D, 0x0A);
         }
-        writer.printf("%c%c%s", 0x0D, 0x0A, response.payload());
+        writer.printf("%c%c", 0x0D, 0x0A);
+        if (response.payload() != null)
+            writer.printf(response.payload());
         writer.flush();
     }
 }

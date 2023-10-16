@@ -5,10 +5,12 @@ public interface HttpResponse extends HttpPacket {
     String details();
 
     interface Builder extends HttpPacket.Builder<Builder> {
-        Builder withResponseCode(int code);
+        int code();
 
+        Builder withResponseCode(int code);
         Builder withDetails(String message);
 
         HttpResponse build();
+
     }
 }

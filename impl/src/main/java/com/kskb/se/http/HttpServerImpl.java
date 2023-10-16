@@ -1,31 +1,100 @@
 package com.kskb.se.http;
 
+import javax.net.ssl.*;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.security.KeyStore;
+import java.security.SecureRandom;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
-import java.util.List;
 
 class HttpServerImpl implements HttpServer {
     private static final int MAX_ERROR = 10;
-    private static final List<String> ROOT_INDEX_TARGETS = List.of("/", "/index.html", "/index.htm");
 
-    private final HttpServerContext context;
+    private final int port;
+    private final int backlog;
+    private final InetAddress addr;
     private final HttpParser parser;
     private final HttpSerializer serializer;
+    private final HttpResourceLocator locator;
+    private final String trustStoreName;
+    private final char[] trustStorePassword;
+    private final String keyStoreName;
+    private final char[] keyStorePassword;
+    private final String tlsVersion;
+    
     private final HttpEndPoints endPoints = HttpEndPoints.create();
     private final HttpRewriters rewriters = HttpRewriters.create();
+    private final HttpResourceLoader loader;
+    private final boolean requireClientAuthentication;
 
     private HttpServerState state = HttpServerState.INITIALIZED;
     private ServerSocket serverSocket;
 
     HttpServerImpl(HttpServerContext context) {
-        this.context = context;
+        this.port = context.port();
+        this.backlog = context.backlog();
+        this.addr = context.addr();
+        this.trustStoreName = context.trustStoreName();
+        this.trustStorePassword = context.trustStorePassword();
+        this.keyStoreName = context.keyStoreName();
+        this.keyStorePassword = context.keyStorePassword();
+        this.tlsVersion = context.tlsVersion();
+        this.requireClientAuthentication = context.requireClientAuthentication();
+        this.locator = context.locator();
+        this.loader = context.loader();
         this.parser = context.parser()
            .orElse(new HttpParserImpl());
         this.serializer = context.serializer()
            .orElse(new HttpSerializerImpl());
+    }
+
+    public ServerSocket createEncryptedServerSocket() throws Exception {
+        assert trustStoreName != null && ! trustStoreName.isEmpty();
+        assert trustStorePassword != null && trustStorePassword.length != 0;
+        assert keyStoreName != null && ! keyStoreName.isEmpty();
+        assert keyStorePassword != null && keyStorePassword.length != 0;
+
+        final KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        final InputStream trustStoreStream = loader.load(HttpSecretResource.class, trustStoreName)
+           .orElseThrow()
+           .stream();
+        trustStore.load(trustStoreStream, trustStorePassword);
+        assert trustStoreStream != null;
+        trustStoreStream.close();
+        final TrustManagerFactory trustManagerFactory =
+           TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        trustManagerFactory.init(trustStore);
+
+        final KeyStore keyStore =
+           KeyStore.getInstance(KeyStore.getDefaultType());
+        final InputStream keyStoreStream = loader.load(HttpSecretResource.class, keyStoreName)
+           .orElseThrow()
+           .stream();
+        keyStore.load(keyStoreStream, keyStorePassword);
+        final KeyManagerFactory keyManagerFactory =
+           KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        keyManagerFactory.init(keyStore, keyStorePassword);
+
+        SSLContext ctx = SSLContext.getInstance("TLS");
+        ctx.init(keyManagerFactory.getKeyManagers(),
+                 trustManagerFactory.getTrustManagers(),
+                 SecureRandom.getInstanceStrong());
+        SSLServerSocketFactory factory = ctx.getServerSocketFactory();
+        SSLServerSocket ss =
+           (SSLServerSocket) factory.createServerSocket(port, backlog, addr);
+
+        ss.setNeedClientAuth(requireClientAuthentication);
+        ss.setEnabledProtocols(new String[] {tlsVersion});
+        sanitize();
+        return ss;
+    }
+
+    public ServerSocket createUnencrypedServerSocket() throws IOException {
+        return new ServerSocket(port, backlog, addr);
     }
 
     @Override
@@ -33,9 +102,15 @@ class HttpServerImpl implements HttpServer {
         state = HttpServerState.STARTED;
 
         try {
-            System.out.println("Starting http server listening to port " + context.port());
-            serverSocket = new ServerSocket(context.port());
-        } catch (IOException e) {
+            if (trustStoreName != null && ! trustStoreName.isEmpty()) {
+                System.out.println("Starting https server listening to port " + port);
+                serverSocket = createEncryptedServerSocket();
+            }
+            else {
+                System.out.println("Starting http server listening to port " + port);
+                serverSocket = createUnencrypedServerSocket();
+            }
+        } catch (Exception e) {
             throw new HttpServerException("Unable to start server", e);
         }
 
@@ -53,9 +128,20 @@ class HttpServerImpl implements HttpServer {
         return this.endPoints;
     }
 
+
     @Override
     public HttpRewriters rewriters() {
         return this.rewriters;
+    }
+
+
+    @Override
+    public HttpResourceLoader resourceLoader() {
+        return loader;
+    }
+
+    private void sanitize() {
+
     }
 
     private void run() throws HttpServerException {
@@ -105,6 +191,9 @@ class HttpServerImpl implements HttpServer {
                 if( ! matches.iterator().hasNext() ) {
                     responseBuilder.withResponseCode(404)
                        .withPayload(DEFAULT_PAGE_404);
+                }
+                else if (responseBuilder.code() == 404 && responseBuilder.hasNotPayload()) {
+                    responseBuilder.withPayload(DEFAULT_PAGE_404);
                 }
 
                 final var response = responseBuilder.build();

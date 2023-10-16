@@ -10,6 +10,14 @@ public interface HttpPacket {
     interface Builder<T extends Builder<T>> {
         HttpMethod method();
         String url();
+        Object payload();
+
+        boolean hasPayload();
+
+        default boolean hasNotPayload() {
+            return ! hasPayload();
+        }
+
         T withMethod(HttpMethod method);
         T withUrl(String url);
         T withVersion(String version);
