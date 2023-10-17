@@ -10,9 +10,22 @@ import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static com.kskb.se.http.HttpMethod.GET;
 
 class HttpServerImpl implements HttpServer {
     private static final int MAX_ERROR = 10;
+    private static final Map<String, Class<? extends HttpResource>> RESOURCE_MAP = new HashMap<>();
+
+    static {
+        RESOURCE_MAP.put("html", HttpHyperText.class);
+        RESOURCE_MAP.put("css", HttpStyle.class);
+        RESOURCE_MAP.put("js", HttpScript.class);
+        RESOURCE_MAP.put("ico", HttpIconImage.class);
+    }
 
     private final int port;
     private final int backlog;
@@ -218,10 +231,20 @@ class HttpServerImpl implements HttpServer {
                     }
                 }
 
-                // Check in case there was no match, then return 404
+                // Check in case there was no match, then attempt to find default
+                // resource loader. Otherwise, return 404
                 if( ! matches.iterator().hasNext() ) {
-                    responseBuilder.withResponseCode(404)
-                       .withPayload(DEFAULT_PAGE_404);
+                    final var type = RESOURCE_MAP.get(request.extension());
+                    if (type != null) {
+                        final var resourceOpt = loader.load(type, request.path());
+                        if (resourceOpt.isPresent()) {
+                           responseBuilder.withPayload(resourceOpt.get());
+                        }
+                        else {
+                            responseBuilder.withResponseCode(404)
+                               .withPayload(DEFAULT_PAGE_404);
+                        }
+                    }
                 }
                 // Check if any endpoint determined the request
                 // resource did not exists. Return 404.

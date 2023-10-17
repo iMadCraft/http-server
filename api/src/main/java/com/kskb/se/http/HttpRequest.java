@@ -9,6 +9,14 @@ public interface HttpRequest extends HttpPacket, Request {
     String originalUrl();
     String query(String key);
 
+    default String path() { return uri().getPath(); }
+    default String query() { return uri().getQuery(); }
+
+    default String extension() {
+        final var parts = path().split("\\.");
+        return parts.length > 1 ? parts[parts.length - 1] : null;
+    }
+
     interface Builder extends HttpPacket.Builder<Builder> {
         HttpMethod method();
         URI uri();

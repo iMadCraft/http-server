@@ -22,7 +22,7 @@ public class Main {
         final HttpServer server = HttpFactory.createServer(serverContext.build());
         final var loader = server.resourceLoader();
 
-        // Resource End Ponts
+        // Resource End Points
         server.add(GET, List.of("/", "/index.html"), (context) -> {
             final var request = context.request();
             final var user = request.headers()
@@ -39,15 +39,6 @@ public class Main {
                   .or(() -> loader.load(HttpHyperText.class, "/pages/index.html", newTemplate));
             context.response().withPayload(index);
         });
-
-        server.add(GET, List.of("/favicon.ico"), (context) ->
-           context.response().withPayload(loader.load(HttpIconImage.class, context.request().uri().getPath())));
-
-        server.add(GET, List.of("/css/*"), (context) ->
-           context.response().withPayload(loader.load(HttpStyle.class, context.request().uri().getPath())));
-
-        server.add(GET, List.of("/js/*"), (context) ->
-           context.response().withPayload(loader.load(HttpScript.class, context.request().uri().getPath()   )));
 
         // API End Points
         server.add(GET, List.of("/api/v1/jvm/props"), (context) -> {

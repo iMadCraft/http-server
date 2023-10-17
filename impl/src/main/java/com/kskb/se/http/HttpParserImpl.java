@@ -32,11 +32,13 @@ interface HttpBufferedReader {
 }
 
 class HttpBufferedReaderImpl implements HttpBufferedReader {
+    private static int BLOCK_SIZE = 4096;
+    private static final int CAPACITY = 4096 * 4096; // Max: 16MB request
+
     private final InputStream stream;
     private final HttpRequest.Builder builder;
 
-    private final int capacity = 4096 * 4096; // Max: 16MB request
-    private final byte[] buf = new byte[capacity];
+    private final byte[] buf = new byte[CAPACITY];
 
     private int index = 0;
 
@@ -50,7 +52,34 @@ class HttpBufferedReaderImpl implements HttpBufferedReader {
 
         final int size;
         try {
-            size = this.stream.read(buf, 0, capacity);
+            // Sometimes a stream request with a no end terminations is sent.
+            // Read the first block and probe result before continuing
+            // reading the rest.
+            int rb = this.stream.read(buf, 0, BLOCK_SIZE);
+            if (rb == -1) {
+                return Result.error("Unable to read from stream");
+            }
+            else if (rb == BLOCK_SIZE) {
+                boolean valid =
+                    ( buf[0] == 'G' && buf[1] == 'E' && buf[2] == 'T' ) ||
+                    ( buf[0] == 'P' && buf[1] == 'O' && buf[2] == 'S' ) ||
+                    ( buf[0] == 'P' && buf[1] == 'U' && buf[2] == 'T' ) ||
+                    ( buf[0] == 'D' && buf[1] == 'E' && buf[2] == 'L' ) ||
+                    ( buf[0] == 'H' && buf[1] == 'E' && buf[2] == 'A' ) ||
+                    ( buf[0] == 'P' && buf[1] == 'A' && buf[2] == 'T' ) ||
+                    ( buf[0] == 'C' && buf[1] == 'O' && buf[2] == 'N' ) ||
+                    ( buf[0] == 'T' && buf[1] == 'R' && buf[2] == 'A' ) ||
+                    ( buf[0] == 'O' && buf[1] == 'P' && buf[2] == 'T' );
+
+                // Continue read the rest if valid request
+                if (valid) {
+                    System.out.println("Sample: " + new String(buf, 0, 256, StandardCharsets.UTF_8));
+                    rb += this.stream.read(buf, BLOCK_SIZE, CAPACITY - BLOCK_SIZE);
+                }
+                else
+                    return Result.error(UnknownRequest.create(buf));
+            }
+            size = rb;
         } catch (IOException e) {
             // This can occur with self-signed certificates
             // that is not installed on client's system.
