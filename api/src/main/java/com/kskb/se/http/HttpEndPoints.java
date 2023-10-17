@@ -26,7 +26,7 @@ class HttpEndPointsImpl implements HttpEndPoints {
         for (EndPointEntry entry: entryList) {
             final boolean condition =
                entry.method == request.method() &&
-                  entry.url.contains(request.url());
+                  entry.url.contains(request.uri().getPath());
             if(condition)
                 matches.add(entry.endPoint);
         }
@@ -38,13 +38,13 @@ class HttpEndPointsImpl implements HttpEndPoints {
                     for (final String url: entry.url) {
                         // All match
                         if("*".equals(url)) {
-                            if (entry.url.contains(request.url()))
+                            if (entry.url.contains(request.uri().getPath()))
                                 matches.add(entry.endPoint);
                         }
                         // Wildcard match
                         else if( url.endsWith("*") ) {
                             final String trimmedUrl = url.substring(0, url.length() - 2);
-                            if(request.url().startsWith(trimmedUrl))
+                            if(request.uri().getPath().startsWith(trimmedUrl))
                                 matches.add(entry.endPoint);
                         }
                     }

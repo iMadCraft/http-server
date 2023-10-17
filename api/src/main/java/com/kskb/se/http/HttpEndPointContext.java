@@ -113,7 +113,7 @@ class HttpEndPointContextImpl implements HttpEndPointContext {
             method = method != null ?
                method : request.method();
             url = url != null ?
-               url : request.url();
+               url : request.uri().getPath();
             return new HttpEndPointContextImpl(this);
         }
     }

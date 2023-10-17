@@ -54,7 +54,7 @@ class HttpResourceLoaderImpl implements HttpResourceLoader {
                   stream = HttpResourceLoader.class.getResourceAsStream(strippedPath);
                }
                else {
-                  // TODO: Later also used for checking permissions
+                  // TODO: major, Later also used for checking permissions
                   // Get the absolute path and resolve all symbolic links
                   final var normalizedPath = Path.of(candidate)
                      .toAbsolutePath()

@@ -4,7 +4,7 @@ import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.SocketException;
+import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
@@ -106,7 +106,13 @@ class HttpBufferedReaderImpl implements HttpBufferedReader {
             i = index;
             while ( i < size && buf[i] != SPACE ) i++;
             if (buf[i] == SPACE) {
-                builder.withUrl(new String(buf, index, i - index, StandardCharsets.US_ASCII));
+                try {
+                    final String urlAsString = new String(buf, index, i - index, StandardCharsets.US_ASCII);
+                    final URI uri = new URI(urlAsString);
+                    builder.withUri(uri);
+                } catch (URISyntaxException e) {
+                    return Result.error(e);
+                }
                 index = i;
             }
             else {

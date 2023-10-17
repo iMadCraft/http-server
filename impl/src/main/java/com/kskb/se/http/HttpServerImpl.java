@@ -174,7 +174,7 @@ class HttpServerImpl implements HttpServer {
                 // Parse incoming stream and populate request builder
                 if(parser.parse(requestBuilder, connection.input())) {
                     System.out.println("Request " +
-                       requestBuilder.method().name() + " " + requestBuilder.url());
+                       requestBuilder.method().name() + " " + requestBuilder.uri());
                 }
                 else {
                     // Error is handled by parser, just

@@ -102,7 +102,7 @@ class HttpRewriterContextImpl implements HttpRewriterContext {
             method = method != null ?
                method : request.method();
             url = url != null ?
-               url : request.url();
+               url : request.uri().getPath();
             return new HttpRewriterContextImpl(this);
         }
     }

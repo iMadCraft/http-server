@@ -2,16 +2,14 @@ package com.kskb.se.http;
 
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
+import java.util.function.Consumer;
 
 import static com.kskb.se.http.HttpMethod.GET;
-import static com.kskb.se.http.HttpResourceLocation.HTML;
 
 public class Main {
     public static void main(final String[] args) throws HttpServerException {
-        final HttpResourceLocator locator = HttpResourceLocator.builder()
+        final var locator = HttpResourceLocator.builder()
            .withDefaults("sample")
-           .addLocation(HTML, "sample/src/main/html/pages")
            .build();
 
         final HttpServerContext.Builder serverContext = HttpServerContext.builder()
@@ -31,21 +29,25 @@ public class Main {
                .get("User-Agent")
                .orElse("Client")
                .split("/")[0];
-            context.response().withPayload(loader.load(HttpHyperText.class, request.url(), (newTemplate) -> {
-                newTemplate.bind("title", "Demo");
-                newTemplate.bind("message", "Hello, " + user);
-                newTemplate.bind("date", () -> new Date().toString());
-            }));
+            final var param = request.query("param");
+            final Consumer<HttpHyperText> newTemplate = (t) -> {
+                t.bind("title", "Demo");
+                t.bind("message", "Hello, " + user + (param != null ? " : " + param : ""));
+                t.bind("date", () -> new Date().toString());
+            };
+            final var index = loader.load(HttpHyperText.class, "/index.html", newTemplate)
+                  .or(() -> loader.load(HttpHyperText.class, "/pages/index.html", newTemplate));
+            context.response().withPayload(index);
         });
 
         server.add(GET, List.of("/favicon.ico"), (context) ->
-           context.response().withPayload(loader.load(HttpIconImage.class, context.request().url())));
+           context.response().withPayload(loader.load(HttpIconImage.class, context.request().uri().getPath())));
 
         server.add(GET, List.of("/css/*"), (context) ->
-           context.response().withPayload(loader.load(HttpStyle.class, context.request().url())));
+           context.response().withPayload(loader.load(HttpStyle.class, context.request().uri().getPath())));
 
         server.add(GET, List.of("/js/*"), (context) ->
-           context.response().withPayload(loader.load(HttpScript.class, context.request().url())));
+           context.response().withPayload(loader.load(HttpScript.class, context.request().uri().getPath()   )));
 
         // API End Points
         server.add(GET, List.of("/api/v1/jvm/props"), (context) -> {

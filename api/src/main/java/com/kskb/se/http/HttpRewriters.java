@@ -24,7 +24,7 @@ class HttpRewritersImpl implements HttpRewriters {
       for (RewriterEntry entry: entryList) {
          final boolean condition =
             entry.method == request.method() &&
-               entry.url.contains(request.url());
+               entry.url.contains(request.uri().getPath());
          if(condition)
             matches.add(entry.endPoint);
       }

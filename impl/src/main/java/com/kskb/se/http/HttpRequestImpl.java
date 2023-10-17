@@ -1,17 +1,21 @@
 package com.kskb.se.http;
 
+import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
+
 class HttpRequestImpl extends AbstractHttpPacket implements HttpRequest {
     private final HttpMethod method;
     private final String version;
-    private final String url;
-    private final String originalUrl;
+    private final URI uri;
+
+    private Map<String, String> params = null;
 
     private HttpRequestImpl(Builder builder) {
         super(builder);
         this.method = builder.method;
-        this.url = builder.url;
+        this.uri = builder.uri;
         this.version = builder.version;
-        this.originalUrl = builder.originalUrl;
     }
 
     @Override
@@ -20,8 +24,8 @@ class HttpRequestImpl extends AbstractHttpPacket implements HttpRequest {
     }
 
     @Override
-    public String url() {
-        return this.url;
+    public URI uri() {
+        return this.uri;
     }
 
     @Override
@@ -31,12 +35,32 @@ class HttpRequestImpl extends AbstractHttpPacket implements HttpRequest {
 
     @Override
     public String originalUrl() {
-        return this.originalUrl;
+        return uri.getPath();
+    }
+
+    @Override
+    public String query(String key) {
+        return findParam(key);
+    }
+
+    private String findParam(String key) {
+        if ( uri.getQuery() != null) {
+            if ( params == null) {
+                params = new HashMap<>();
+                final var paramList = uri.getQuery().split("&");
+                for (final var param: paramList) {
+                    final var parts = param.split("=");
+                    params.put(parts[0], parts.length > 1 ? parts[1] : "");
+                }
+            }
+            return params.get(key);
+        }
+        return null;
     }
 
     @Override
     public String toString() {
-        return this.method.name() + " " + originalUrl + " " + version +
+        return this.method.name() + " " + originalUrl() + " " + version +
            " { headers: " + headers().size() + ", payload: " + payload().map(HttpResource::size).orElse(0L) + " }";
     }
 
@@ -46,9 +70,8 @@ class HttpRequestImpl extends AbstractHttpPacket implements HttpRequest {
 
     static class Builder extends AbstractHttpPacket.Builder<HttpRequest.Builder> implements HttpRequest.Builder {
         private HttpMethod method;
-        private String url;
+        private URI uri;
         private String version;
-        private String originalUrl;
 
         @Override
         public HttpMethod method() {
@@ -56,8 +79,8 @@ class HttpRequestImpl extends AbstractHttpPacket implements HttpRequest {
         }
 
         @Override
-        public String url() {
-            return this.url;
+        public URI uri() {
+            return this.uri;
         }
 
         @Override
@@ -72,10 +95,8 @@ class HttpRequestImpl extends AbstractHttpPacket implements HttpRequest {
         }
 
         @Override
-        public Builder withUrl(String url) {
-            this.url = url;
-            if (this.originalUrl == null)
-                this.originalUrl = url;
+        public Builder withUri(URI uri) {
+            this.uri = uri;
             return this;
         }
 

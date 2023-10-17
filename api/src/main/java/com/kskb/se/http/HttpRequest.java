@@ -1,17 +1,21 @@
 package com.kskb.se.http;
 
+import java.net.URI;
+
 public interface HttpRequest extends HttpPacket, Request {
     HttpMethod method();
-    String url();
+    URI uri();
     String version();
     String originalUrl();
+    String query(String key);
+
     interface Builder extends HttpPacket.Builder<Builder> {
         HttpMethod method();
-        String url();
+        URI uri();
         String version();
 
         Builder withMethod(HttpMethod method);
-        Builder withUrl(String url);
+        Builder withUri(URI uri);
         Builder withVersion(String version);
 
         HttpRequest build();
