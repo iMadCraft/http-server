@@ -1,120 +1,62 @@
 package com.kskb.se.http;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
- abstract class AbstractHttpPacket implements HttpPacket {
-    private final HttpMethod method;
-    private final String version;
-    private final String url;
-    private final List<HttpHeader> headers;
-    private final String payload;
+abstract class AbstractHttpPacket implements HttpPacket {
+   private final HttpHeaders headers;
+   private final HttpResource payload;
 
-    protected AbstractHttpPacket(Builder<?> builder) {
-        this.method = builder.method;
-        this.url = builder.url;
-        this.version = builder.version;
-        this.headers = Collections.unmodifiableList(builder.headers);
-        this.payload = builder.payload;
-    }
+   protected AbstractHttpPacket(Builder<?> builder) {
+      this.headers = HttpHeaders.create(builder.headers);
+      this.payload = builder.payload;
+   }
 
-    @Override
-    public HttpMethod method() {
-        return this.method;
-    }
+   @Override
+   public HttpHeaders headers() {
+      return this.headers;
+   }
 
-    @Override
-    public String url() {
-        return this.url;
-    }
+   @Override
+   public Optional<HttpResource> payload() {
+      return Optional.ofNullable(this.payload);
+   }
 
-    @Override
-    public String version() {
-        return this.version;
-    }
+   protected static abstract class Builder<T extends HttpPacket.Builder<T>> implements HttpPacket.Builder<T> {
+      private HttpResource payload;
+      private final List<HttpHeader> headers = new ArrayList<>();
 
-    @Override
-    public Iterable<HttpHeader> headers() {
-        return this.headers;
-    }
 
-    @Override
-    public String payload() {
-        return this.payload;
-    }
+      protected Builder() {
+      }
 
-    protected static abstract class Builder<T extends HttpPacket.Builder<T>> implements HttpPacket.Builder<T> {
-        private final List<HttpHeader> headers = new ArrayList<>();
-        private HttpMethod method;
-        private String url;
-        private String version;
-        private String payload;
+      @Override
+      public Optional<HttpResource> payload() {
+         return Optional.ofNullable(this.payload);
+      }
 
-        protected Builder() {
-        }
+      @Override
+      public T addHeader(HttpHeader header) {
+         this.headers.add(header);
+         return castThis();
+      }
 
-        protected Builder(HttpRequest from) {
-            if (from != null) {
-                this.method = from.method();
-                this.url = from.url();
-                this.version = from.version();
-            }
-        }
+      @Override
+      public T withPayload(HttpResource payload) {
+         this.payload = payload;
+         return castThis();
+      }
 
-       @Override
-       public HttpMethod method() {
-          return this.method;
-       }
+      @Override
+      public T withPayload(Optional<? extends HttpResource> payload) {
+         this.payload = payload.orElse(null);
+         return castThis();
+      }
 
-       @Override
-       public String url() {
-          return this.url;
-       }
-
-       @Override
-       public String payload() {
-          return this.payload;
-       }
-
-       @Override
-       public boolean hasPayload() {
-          return this.payload != null && ! this.payload.isEmpty();
-       }
-
-       @Override
-        public T withMethod(HttpMethod method) {
-            this.method = method;
-            return castThis();
-        }
-
-        @Override
-        public T withUrl(String url) {
-            this.url = url;
-            return castThis();
-        }
-
-        @Override
-        public T withVersion(String version) {
-            this.version = version;
-            return castThis();
-        }
-
-        @Override
-        public T addHeader(HttpHeader header) {
-            this.headers.add(header);
-            return castThis();
-        }
-
-        @Override
-        public T withPayload(String payload) {
-            this.payload = payload;
-            return castThis();
-        }
-
-        @SuppressWarnings("unchecked")
-        private T castThis() {
-            return (T) this;
-        }
-    }
+      @SuppressWarnings("unchecked")
+      private T castThis() {
+         return (T) this;
+      }
+   }
 }

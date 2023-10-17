@@ -2,7 +2,6 @@ package com.kskb.se.http;
 
 import java.util.Date;
 import java.util.List;
-import java.util.Optional;
 
 import static com.kskb.se.http.HttpMethod.GET;
 import static com.kskb.se.http.HttpResourceLocation.HTML;
@@ -33,31 +32,22 @@ public class Main {
             }
         });
 
-        server.add(GET, List.of("/site/*"), (context) -> {
-            try {
-                final var url = context.url().substring("/site/".length());
-                final Optional<HttpTemplate> templateOpt = loader.load(HttpTemplate.class, url, (newTemplate) -> {
-                    newTemplate.bind("title", "Hello world");
-                    newTemplate.bind("date", () -> new Date().toString());
-                });
-
-                if (templateOpt.isPresent()) {
-                    context.response()
-                       .withResponseCode(200)
-                       .withPayload(templateOpt.get().toString());
-                }
-                else {
-                    context.response()
-                       .withDetails(context.url())
-                       .withResponseCode(404);
-                }
-            }
-            catch (Throwable e) {
-                context.response()
-                   .withDetails(e.getMessage())
-                   .withResponseCode(500);
-            }
+        server.add(GET, List.of("/site/", "/site/index.html"), (context) -> {
+            final var request = context.request();
+            final var user = request.headers()
+               .get("User-Agent")
+               .orElse("Client")
+               .split("/")[0];
+            context.response().withPayload(loader.load(HttpHyperText.class, request.originalUrl(), (newTemplate) -> {
+                newTemplate.bind("title", "Demo");
+                newTemplate.bind("message", "Hello, " + user);
+                newTemplate.bind("date", () -> new Date().toString());
+            }));
         });
+
+        server.add(GET, List.of("/site/css/*"), (context) ->
+           context.response().withPayload(loader.load(HttpStyle.class, context.request().originalUrl()))
+        );
 
         server.start();
     }

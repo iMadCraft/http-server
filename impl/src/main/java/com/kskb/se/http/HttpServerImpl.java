@@ -21,15 +21,17 @@ class HttpServerImpl implements HttpServer {
     private final HttpSerializer serializer;
     private final HttpResourceLocator locator;
     private final String trustStoreName;
-    private final char[] trustStorePassword;
     private final String keyStoreName;
-    private final char[] keyStorePassword;
     private final String tlsVersion;
     
     private final HttpEndPoints endPoints = HttpEndPoints.create();
     private final HttpRewriters rewriters = HttpRewriters.create();
     private final HttpResourceLoader loader;
     private final boolean requireClientAuthentication;
+
+    // Sensitive information will be sanitized after usage
+    private char[] trustStorePassword;
+    private char[] keyStorePassword;
 
     private HttpServerState state = HttpServerState.INITIALIZED;
     private ServerSocket serverSocket;
@@ -141,23 +143,46 @@ class HttpServerImpl implements HttpServer {
     }
 
     private void sanitize() {
-
+        this.trustStorePassword = null;
+        this.keyStorePassword = null;
     }
 
     private void run() throws HttpServerException {
-        // In case a error-loop occur
+        // Used for a simple infinite error-loop prevention,
+        // reset after a successful attempt
         int errorCounter = 0;
 
+        // Main Loop. Following flow:
+        //    * Accept client request
+        //    * Parse request
+        //    * Modify request (rewriters)
+        //    * Create response builder with server defaults
+        //    * Find matching endpoints and forward request and responseBuilder
         while (isRunning()) {
+            HttpConnection connection = null;
             try {
                 System.out.println("Listening to client ...");
-                final HttpConnection connection = accept();
-                final HttpRequest.Builder requestBuilder = HttpRequestImpl.builder();
-                final HttpResponse.Builder responseBuilder = HttpResponseImpl.builder();
 
-                parser.parse(requestBuilder, connection.input());
-                System.out.println("Request " + requestBuilder.method().name() + " " + requestBuilder.url());
+                // Blocking call. Wait until a client socket has been accepted
+                connection = accept();
 
+                final var requestBuilder = HttpRequestImpl.builder();
+                final var responseBuilder = HttpResponseImpl.builder();
+                final var date = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss")
+                   .format(Calendar.getInstance().getTime());
+
+                // Parse incoming stream and populate request builder
+                if(parser.parse(requestBuilder, connection.input())) {
+                    System.out.println("Request " +
+                       requestBuilder.method().name() + " " + requestBuilder.url());
+                }
+                else {
+                    // Error is handled by parser, just
+                    // continue with the next request
+                    continue;
+                }
+
+                // Execute all rewrites
                 HttpRewriterContext rewriterContext = HttpRewriterContextImpl.builder()
                    .withRequestBuilder(requestBuilder)
                    .withResponseBuilder(responseBuilder)
@@ -166,52 +191,78 @@ class HttpServerImpl implements HttpServer {
                     rewriter.modify(rewriterContext);
                 }
 
+                // All modification to request should be final,
+                // Create request from builder
                 final HttpRequest request = requestBuilder.build();
-                final var date = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss")
-                   .format(Calendar.getInstance().getTime());
 
-                responseBuilder.withMethod(request.method())
-                   .withUrl(request.url())
-                   .withVersion(request.version())
+                // Populate with server defaults
+                responseBuilder
                    .withResponseCode(200)
-                   .addHeader(HttpHeader.create("Content-Type", "text/html"))
                    .addHeader(HttpHeader.create("Server", "Demo Server"))
                    .addHeader(HttpHeader.create("Date", date + " CET"));
 
+                // Find matching endpoints and execute
                 final HttpEndPointContext endPointContext = HttpEndPointContext.builder()
                    .withRequest(request)
                    .withResponseBuilder(responseBuilder)
                    .build();
-
                 final var matches = endPoints.match(request);
                 for(HttpEndPoint endPoint: matches) {
-                    endPoint.handle(endPointContext);
+                    try {
+                        endPoint.handle(endPointContext);
+                    }
+                    catch (Throwable t) {
+                        responseBuilder
+                           .withDetails(t.getMessage())
+                           .withResponseCode(500);
+                    }
                 }
 
+                // Check in case there was no match, then return 404
                 if( ! matches.iterator().hasNext() ) {
                     responseBuilder.withResponseCode(404)
                        .withPayload(DEFAULT_PAGE_404);
                 }
+                // Check if any endpoint determined the request
+                // resource did not exists. Return 404.
                 else if (responseBuilder.code() == 404 && responseBuilder.hasNotPayload()) {
-                    responseBuilder.withPayload(DEFAULT_PAGE_404);
+                    responseBuilder
+                       .withPayload(DEFAULT_PAGE_404);
                 }
 
                 final var response = responseBuilder.build();
                 System.out.println("Respond with " + response.code());
 
+                // Serialize and send response back to client
                 serializer.serialize(connection.output(), response);
-
-                connection.close();
 
                 // Reset error counter
                 errorCounter = 0;
-            } catch (Exception e) {
+            }
+            catch (HttpServerException e) {
                 System.err.println(e.getMessage());
+                if (e.getCause() != null) {
+                    e.getCause().printStackTrace();
+                }
                 if (errorCounter < MAX_ERROR) {
                     errorCounter++;
                 } else {
                     stop();
                 }
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+                if (errorCounter < MAX_ERROR) {
+                    errorCounter++;
+                } else {
+                    stop();
+                }
+            }
+            finally {
+                if (connection != null) {
+                    connection.close();
+                }
+                connection = null;
             }
         }
     }
@@ -246,11 +297,11 @@ class HttpServerImpl implements HttpServer {
         return builder.build();
     }
 
-    private static final String DEFAULT_PAGE_404 = """
+    private static final HttpHyperText DEFAULT_PAGE_404 = HttpHyperText.create("""
     <html>
     <body>
         <h1>Page Not Found: 404</h1>
     </body>
     </html>
-    """;
+    """);
 }

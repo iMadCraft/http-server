@@ -1,21 +1,30 @@
 package com.kskb.se.http;
 
+import java.io.BufferedOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 
 class HttpSerializerImpl implements HttpSerializer {
     @Override
-    public void serialize(OutputStream output, HttpResponse response) throws HttpServerException {
-        final var writer = new PrintWriter(output);
-        final var padding = response.code() != 404 ?
-           "OK" : "Not Found";
-        writer.printf("HTTP/%.3s %d %s%c%c", response.version(), response.code(), padding, 0x0D, 0x0A);
-        for (final var header : response.headers()) {
-            writer.printf("%s: %s%c%c", header.name(), header.value(), 0x0D, 0x0A);
+    public void serialize(OutputStream output2, HttpResponse response) throws HttpServerException {
+        try {
+            final var output = new BufferedOutputStream(output2);
+            output.write(String.format("HTTP/%.3s %d %s", response.version(), response.code(), response.codeAsText()).getBytes());
+            output.write(new byte[]{ 0x0D, 0x0A });
+            for (final var header : response.headers()) {
+                output.write(String.format("%s: %s", header.name(), header.value()).getBytes());
+                output.write(new byte[]{ 0x0D, 0x0A });
+            }
+            output.write(new byte[]{ 0x0D, 0x0A });
+
+            if (response.payload().isPresent()) {
+                byte[] bytes = response.payload().get().bytes();
+                output.write(bytes);
+            }
+            output.flush();
         }
-        writer.printf("%c%c", 0x0D, 0x0A);
-        if (response.payload() != null)
-            writer.printf(response.payload());
-        writer.flush();
+        catch (IOException e) {
+            throw new HttpServerException("Unable to serialize response", e);
+        }
     }
 }

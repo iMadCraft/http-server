@@ -1,29 +1,38 @@
 package com.kskb.se.http;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
 
-import static com.kskb.se.http.HttpResourceLocation.HTML;
-import static com.kskb.se.http.HttpResourceType.TEXT;
-
-@HttpResourceProperty(location = HTML, type = TEXT)
 public interface HttpTemplate extends HttpResource {
    void bind(String label, @Stringable Object value);
    void bind(String label, @Stringable Supplier<Object> value);
-
    String toString();
-   static HttpTemplate create(String template) {
-      return new HttpTemplateImpl(template);
-   }
 }
 
-class HttpTemplateImpl implements HttpTemplate {
+abstract class AbstractHttpTemplate implements HttpTemplate {
    private final String template;
    private final Map<String, Object> binds = new HashMap<>();
 
-   HttpTemplateImpl(String template) {
+   AbstractHttpTemplate(String template) {
       this.template = template;
+   }
+
+   @Override
+   public long size() {
+      return bytes().length;
+   }
+
+   @Override
+   public HttpResourceType type() {
+      return HttpResourceType.TEXT;
+   }
+
+   @Override
+   public byte[] bytes() {
+      // TODO: minor, charset can not be assumed, extract from meta tag charset
+      return toString().getBytes(StandardCharsets.UTF_8);
    }
 
    @Override

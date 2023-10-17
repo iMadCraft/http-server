@@ -11,7 +11,7 @@ class HttpResponseImpl extends AbstractHttpPacket implements HttpResponse {
     }
 
     static HttpResponse.Builder builder() {
-        return new Builder(null);
+        return new Builder();
     }
 
     @Override
@@ -27,10 +27,6 @@ class HttpResponseImpl extends AbstractHttpPacket implements HttpResponse {
     private static class Builder extends AbstractHttpPacket.Builder<HttpResponse.Builder> implements HttpResponse.Builder {
         private int code;
         private String details;
-
-        Builder(HttpRequest from) {
-            super(from);
-        }
 
         @Override
         public int code() {
@@ -51,8 +47,13 @@ class HttpResponseImpl extends AbstractHttpPacket implements HttpResponse {
 
         @Override
         public HttpResponse build() {
-            if (hasPayload()) {
-                addHeader(HttpHeader.create("Content-Length", String.valueOf(payload().length())));
+            if (payload().isPresent()) {
+                final var payload = payload().get();
+                addHeader(HttpHeader.create("Content-Length", String.valueOf(payload.size())));
+                addHeader(HttpHeader.create("Content-Type", payload.contentType()));
+            }
+            else {
+                addHeader(HttpHeader.create("Content-Length", "0"));
             }
             return new HttpResponseImpl(this);
         }

@@ -1,7 +1,9 @@
 package com.kskb.se.http;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 
 public interface HttpRewriters extends Iterable<HttpRewriter> {
    void add(HttpMethod method, List<String> url, HttpRewriter handler);

@@ -1,7 +1,6 @@
 package com.kskb.se.http;
 
 import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.Optional;
 
 public interface HttpServerContext {

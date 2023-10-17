@@ -1,6 +1,9 @@
 package com.kskb.se.http;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 
 public interface HttpEndPoints extends Iterable<HttpEndPoint> {
     void add(HttpMethod method, List<String> url, HttpEndPoint handler);

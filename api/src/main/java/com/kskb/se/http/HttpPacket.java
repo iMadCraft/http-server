@@ -1,27 +1,20 @@
 package com.kskb.se.http;
 
+import java.util.Optional;
+
 public interface HttpPacket {
-    HttpMethod method();
-    String url();
-    String version();
-    Iterable<HttpHeader> headers();
-    String payload();
+    HttpHeaders headers();
+    Optional<HttpResource> payload();
 
     interface Builder<T extends Builder<T>> {
-        HttpMethod method();
-        String url();
-        Object payload();
+        Optional<HttpResource> payload();
 
-        boolean hasPayload();
+        default boolean hasPayload() { return payload().isPresent(); }
+        default boolean hasNotPayload() { return payload().isEmpty(); }
 
-        default boolean hasNotPayload() {
-            return ! hasPayload();
-        }
-
-        T withMethod(HttpMethod method);
-        T withUrl(String url);
-        T withVersion(String version);
         T addHeader(HttpHeader httpHeader);
-        T withPayload(String payload);
+
+        Builder withPayload(HttpResource payload);
+        Builder withPayload(Optional<? extends HttpResource> payload);
     }
 }

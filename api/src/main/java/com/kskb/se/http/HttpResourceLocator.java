@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static com.kskb.se.http.HttpResourceLocation.*;
+
 public interface HttpResourceLocator {
     Iterable<HttpResourceLocationEntry> locations();
 
@@ -52,8 +54,13 @@ class HttpResourceLocatorImpl implements HttpResourceLocator {
 
         @Override
         public Builder withDefaults(String projectName) {
-            addLocation(HttpResourceLocation.HTML, projectName + "/src/main/html");
-            addLocation(HttpResourceLocation.SECRET, projectName + "/src/main/resources/secret");
+            addLocation(HTML, "resource:///htdocs");
+            addLocation(HTML, projectName + "/src/main/html");
+            addLocation(CSS, "resource:///htdocs");
+            addLocation(CSS, projectName + "/src/main");
+            addLocation(HTDOCS, "resource:///htdocs");
+            addLocation(SECRET, "resource:///secret");
+            addLocation(SECRET, projectName + "/src/main/resources/secret");
             return this;
         }
 

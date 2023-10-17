@@ -79,8 +79,8 @@ class HttpResourceLoaderImpl implements HttpResourceLoader {
             method = type.getMethod("create", String.class);
          }
          else {
-            arg = stream;
-            method = type.getMethod("create", InputStream.class);
+            arg = stream.readAllBytes();
+            method = type.getMethod("create", byte[].class);
          }
          final Object obj = method.invoke(null, arg);
          return (T) obj;
