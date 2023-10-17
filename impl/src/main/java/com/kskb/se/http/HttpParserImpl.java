@@ -4,6 +4,7 @@ import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
@@ -56,14 +57,10 @@ class HttpBufferedReaderImpl implements HttpBufferedReader {
             // FollowUp request seems to work
             if (e instanceof SSLHandshakeException && e.getMessage().contains("certificate_unknown"))
                 return Result.error("Request resulted in faulty handshake");
-            else if (e instanceof SSLException) {
-                if ("Broken pipe".equals(e.getMessage()))
-                    return Result.error("Request resulted in broken pipe");
-                else if ("Unsupported or unrecognized SSL message".equals(e.getMessage()))
-                    return Result.error(e.getMessage());
-                else
-                    return Result.error(e);
-            }
+            else if (e instanceof SocketException && "Broken pipe".equals(e.getMessage()))
+                return Result.error("Request resulted in broken pipe");
+            else if (e instanceof SSLException && "Unsupported or unrecognized SSL message".equals(e.getMessage()))
+                return Result.error(e.getMessage());
             else
                 return Result.error(e);
         }

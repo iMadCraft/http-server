@@ -58,7 +58,12 @@ class HttpResourceLocatorImpl implements HttpResourceLocator {
             addLocation(HTML, projectName + "/src/main/html");
             addLocation(CSS, "resource:///htdocs");
             addLocation(CSS, projectName + "/src/main");
+            addLocation(JAVASCRIPT, "resource:///htdocs");
+            addLocation(JAVASCRIPT, projectName + "/src/3pp");
+            addLocation(JAVASCRIPT, projectName + "/src/main");
             addLocation(HTDOCS, "resource:///htdocs");
+            addLocation(ICO, "resource:///htdocs");
+            addLocation(ICO, "impl/src/main/resources");
             addLocation(SECRET, "resource:///secret");
             addLocation(SECRET, projectName + "/src/main/resources/secret");
             return this;

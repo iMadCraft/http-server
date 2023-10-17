@@ -16,6 +16,7 @@ abstract class AbstractHttpTemplate implements HttpTemplate {
    private final Map<String, Object> binds = new HashMap<>();
 
    AbstractHttpTemplate(String template) {
+      assert template != null;
       this.template = template;
    }
 

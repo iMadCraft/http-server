@@ -1,11 +1,30 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <title>{{ title }}</title>
-    <link type="text/css" rel="stylesheet" href="css/reset.css">
-    <link type="text/css" rel="stylesheet" href="css/style.css">
+    <meta charset="UTF-8" />
+    <link type="text/css" rel="stylesheet" href="css/reset.css" />
+    <link type="text/css" rel="stylesheet" href="css/style.css" />
+    <script src="js/htmx.min.js"></script>
 </head>
 <body>
-<h1>{{ message }}</h1>
-<p>{{ date }}</p>
+<main>
+    <h1>{{ message }}</h1>
+    <p>{{ date }}</p>
+    <details>
+        <summary hx-get="/api/v1/jvm/props"
+                 hx-target="next div"
+                 hx-trigger="click once"
+                 hx-swap="outerHTML">Java Properties</summary>
+        <div></div>
+    </details>
+    <details>
+        <summary hx-get="/api/v1/process/envvars"
+                 hx-target="next div"
+                 hx-trigger="click once"
+                 hx-swap="outerHTML">Envvars</summary>
+        <div></div>
+    </details>
+</main>
 </body>
 </html>

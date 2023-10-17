@@ -49,7 +49,8 @@ class HttpResourceLoaderImpl implements HttpResourceLoader {
          for (final String candidate: this.locator.getCandidates(location, name)) {
             try {
                if(candidate.startsWith("resource://")) {
-                  final var strippedPath = candidate.substring("resource://".length());
+                  final var strippedPath = candidate.substring("resource://".length())
+                     .replaceAll("//", "/");
                   stream = HttpResourceLoader.class.getResourceAsStream(strippedPath);
                }
                else {

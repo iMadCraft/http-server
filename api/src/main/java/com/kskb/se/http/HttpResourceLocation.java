@@ -4,5 +4,7 @@ public enum HttpResourceLocation {
    HTDOCS,
    HTML,
    CSS,
+   JAVASCRIPT,
+   ICO,
    SECRET
 }

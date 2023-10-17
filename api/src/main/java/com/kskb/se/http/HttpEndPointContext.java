@@ -1,5 +1,8 @@
 package com.kskb.se.http;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public interface HttpEndPointContext {
     HttpMethod method();
 
@@ -9,7 +12,7 @@ public interface HttpEndPointContext {
 
     HttpResponse.Builder response();
 
-
+    Map<Object, Object> dataset();
 
     static Builder builder() {
         return HttpEndPointContextImpl.builder();
@@ -34,6 +37,7 @@ class HttpEndPointContextImpl implements HttpEndPointContext {
     private final String url;
     private final HttpRequest request;
     private final HttpResponse.Builder response;
+    private final Map<Object, Object> dataset = new HashMap<>();
 
     public HttpEndPointContextImpl(Builder builder) {
         this.method = builder.method;
@@ -60,6 +64,11 @@ class HttpEndPointContextImpl implements HttpEndPointContext {
     @Override
     public HttpResponse.Builder response() {
         return this.response;
+    }
+
+    @Override
+    public Map<Object, Object> dataset() {
+        return this.dataset;
     }
 
     static HttpEndPointContext.Builder builder() {

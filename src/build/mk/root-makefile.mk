@@ -6,12 +6,19 @@ RMDIRS ?= rm -rfv
 LN ?= ln -s
 
 MVN ?= mvn
+JAVA ?= java
+CURL ?= curl
 
 __DIR__  = $(dir $(@))
 __VDIR__ = $(dir $(*))
 
 SRC_JAVA_DIR := src/main/java
 BUILD_JAR_DIR := target/classes
+
+
+JAVA_DEBUG_PORT ?= 5005
+JAVA_DEBUG_OPTS ?= -agentlib:jdwp=transport=dt_socket,address=$(JAVA_DEBUG_PORT),server=y,suspend=n
+JAVA_OPTS ?=
 
 JAVA_API_OBJS = $(shell cd api/$(BUILD_JAR_DIR) && find . -name "*.class")
 JAVA_IMPL_OBJS = $(shell cd impl/$(BUILD_JAR_DIR) && find . -name "*.class")
@@ -33,7 +40,7 @@ JAVA_OBJS := \
 	$(JAVA_IMPL_OBJS) \
 	$(JAVA_SAMPLE_OBJS)
 
-.PHONY: all clean clean-% build build-%
+.PHONY: all clean clean-% build build-% run run-% debug debug-% download download-%
 all: clean-java build-java
 	$(MAKE) -C . bin/demo.jar
 
@@ -43,7 +50,18 @@ clean: clean-java
 clean-java:
 	$(MVN) clean
 
-build-java:
+debug-demo: JAVA_OPTS += $(JAVA_DEBUG_OPTS)
+run-demo debug-demo: bin/demo.jar
+	(cd bin && $(JAVA) -jar $(JAVA_OPTS) demo.jar)
+
+sample/src/3pp/js/htmx.min.js:
+	@$(MKDIRS) $(__DIR__)
+	$(CURL) -L -o $(@) https://unpkg.com/htmx.org@1.9.6/dist/htmx.min.js
+
+download-dep-javascript: \
+		sample/src/3pp/js/htmx.min.js
+
+build-java: download-dep-javascript
 	$(MVN) package
 
 $(BUILD_JAR_DIR)/META-INF/MANIFEST.MF: cli/src/main/resources/MANIFEST.MF
@@ -62,14 +80,21 @@ $(BUILD_JAR_DIR)/htdocs/css/%.css: sample/src/main/css/%.css
 	@$(MKDIRS) $(__DIR__)
 	$(CP) $(^) $(@)
 
+$(BUILD_JAR_DIR)/htdocs/js/%.js: sample/src/3pp/js/%.js
+	@$(MKDIRS) $(__DIR__)
+	$(CP) $(^) $(@)
+
 DEMO_TARGETS := \
 	$(BUILD_JAR_DIR)/META-INF/MANIFEST.MF \
 	$(BUILD_JAR_DIR)/htdocs/index.html \
 	$(BUILD_JAR_DIR)/htdocs/css/reset.css \
-	$(BUILD_JAR_DIR)/htdocs/css/style.css
+	$(BUILD_JAR_DIR)/htdocs/css/style.css \
+	$(BUILD_JAR_DIR)/htdocs/js/htmx.min.js \
+
 
 libexec/demo-0.1.0.jar: $(DEMO_TARGETS)
 	@$(MKDIRS) $(__DIR__)
+	$(RM) $(@)
 #	# Copy target directories
 	$(CP) -rv */$(BUILD_JAR_DIR)/* $(BUILD_JAR_DIR)
 #	# Copy target files
