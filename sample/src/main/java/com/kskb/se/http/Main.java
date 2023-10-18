@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import static com.kskb.se.http.HttpMethod.GET;
+import static com.kskb.se.http.HttpMethod.POST;
 
 public class Main {
     public static void main(final String[] args) throws HttpServerException {
@@ -67,6 +68,27 @@ public class Main {
             }
             builder.append("</table>");
             context.response().withPayload(HttpHyperText.create(builder.toString()));
+        });
+
+        server.add(POST, List.of("/api/v1/auth/login"), (context) -> {
+            context.request()
+               .payload()
+               .ifPresent(payload -> {
+                   final var data = payload.toString();
+                   final var formParts = data.split("&");
+                   for (final var part: formParts) {
+                       final var pair = part.split("=");
+                       if ("username".equals(pair[0])) {
+                           System.out.println("Username: " + pair[1]);
+                       }
+                       else if ("password".equals(pair[0])) {
+                           System.out.println("Password: " + pair[1]);
+                       }
+                   }
+               });
+
+            context.response()
+               .withResponseCode(200);
         });
         server.start();
     }

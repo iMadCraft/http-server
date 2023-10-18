@@ -246,6 +246,7 @@ class HttpServerImpl implements HttpServer {
                         }
                     }
                 }
+
                 // Check if any endpoint determined the request
                 // resource did not exists. Return 404.
                 else if (responseBuilder.code() == 404 && responseBuilder.hasNotPayload()) {

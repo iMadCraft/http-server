@@ -194,7 +194,20 @@ class HttpBufferedReaderImpl implements HttpBufferedReader {
         }
 
         if (index < size) {
-            System.out.println("Warning request payload (" + (size - index) + ") is ignored");
+            final HttpHeader contentLength = builder.headers().stream()
+               .filter(e -> "content-length".equalsIgnoreCase(e.name()))
+                  .findFirst()
+                     .orElse(null);
+            final HttpHeader contentType = builder.headers().stream()
+               .filter(e -> "content-type".equalsIgnoreCase(e.name()))
+                  .findFirst()
+                     .orElse(null);
+            final int payloadSize = contentLength != null && contentLength.value() != null ?
+               Integer.parseInt(contentLength.value()) : 0;
+            final int dataLeft = size - index;
+            if (payloadSize >= dataLeft && payloadSize <= dataLeft) {
+                builder.withPayload(HttpPlainText.create(new String(buf, index, payloadSize, StandardCharsets.UTF_8)));
+            }
         }
 
         return Result.of(builder);
