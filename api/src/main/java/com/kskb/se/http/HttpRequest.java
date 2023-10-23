@@ -1,6 +1,7 @@
 package com.kskb.se.http;
 
 import java.net.URI;
+import java.util.Calendar;
 
 public interface HttpRequest extends HttpPacket, Request {
     HttpMethod method();
@@ -8,6 +9,7 @@ public interface HttpRequest extends HttpPacket, Request {
     String version();
     String originalUrl();
     String query(String key);
+    Cookies cookies();
 
     default String path() { return uri().getPath(); }
     default String query() { return uri().getQuery(); }
@@ -25,7 +27,9 @@ public interface HttpRequest extends HttpPacket, Request {
         Builder withMethod(HttpMethod method);
         Builder withUri(URI uri);
         Builder withVersion(String version);
+        Builder withCookies(Cookies cookies);
 
         HttpRequest build();
+
     }
 }

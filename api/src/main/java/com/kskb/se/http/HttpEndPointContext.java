@@ -4,56 +4,42 @@ import java.util.HashMap;
 import java.util.Map;
 
 public interface HttpEndPointContext {
-    HttpMethod method();
-
-    String url();
-
     HttpRequest request();
-
     HttpResponse.Builder response();
 
+    Session session();
+    Cookies cookies();
     Map<Object, Object> dataset();
+
+    default HttpMethod method() { return request().method(); }
+    default String path() { return request().path(); }
 
     static Builder builder() {
         return HttpEndPointContextImpl.builder();
     }
 
     interface Builder {
-        Builder withMethod(HttpMethod method);
-
-        Builder withUrl(String url);
-
         Builder withRequest(HttpRequest request);
-
         Builder withResponseBuilder(HttpResponse.Builder response);
+        Builder withCookies(Cookies cookies);
+        Builder withSession(Session session);
 
         HttpEndPointContext build();
     }
 }
 
 class HttpEndPointContextImpl implements HttpEndPointContext {
-
-    private final HttpMethod method;
-    private final String url;
     private final HttpRequest request;
     private final HttpResponse.Builder response;
+    private final Cookies cookies;
+    private final Session session;
     private final Map<Object, Object> dataset = new HashMap<>();
 
     public HttpEndPointContextImpl(Builder builder) {
-        this.method = builder.method;
-        this.url = builder.url;
         this.request = builder.request;
         this.response = builder.response;
-    }
-
-    @Override
-    public HttpMethod method() {
-        return this.method;
-    }
-
-    @Override
-    public String url() {
-        return this.url;
+        this.cookies = builder.cookies;
+        this.session = builder.session;
     }
 
     @Override
@@ -67,6 +53,16 @@ class HttpEndPointContextImpl implements HttpEndPointContext {
     }
 
     @Override
+    public Cookies cookies() {
+        return this.cookies;
+    }
+
+    @Override
+    public Session session() {
+        return this.session;
+    }
+
+    @Override
     public Map<Object, Object> dataset() {
         return this.dataset;
     }
@@ -76,23 +72,10 @@ class HttpEndPointContextImpl implements HttpEndPointContext {
     }
 
     private static class Builder implements HttpEndPointContext.Builder {
-
-        private HttpResponse.Builder response;
-        private HttpMethod method;
-        private String url;
         private HttpRequest request;
-
-        @Override
-        public Builder withMethod(HttpMethod method) {
-            this.method = method;
-            return this;
-        }
-
-        @Override
-        public Builder withUrl(String url) {
-            this.url = url;
-            return this;
-        }
+        private HttpResponse.Builder response;
+        public Cookies cookies;
+        private Session session;
 
         @Override
         public Builder withRequest(HttpRequest request) {
@@ -107,13 +90,21 @@ class HttpEndPointContextImpl implements HttpEndPointContext {
         }
 
         @Override
+        public Builder withCookies(Cookies cookies) {
+            this.cookies = cookies;
+            return this;
+        }
+
+        @Override
+        public Builder withSession(Session session) {
+            this.session = session;
+            return this;
+        }
+
+        @Override
         public HttpEndPointContext build() {
             assert request != null;
             assert response != null;
-            method = method != null ?
-               method : request.method();
-            url = url != null ?
-               url : request.uri().getPath();
             return new HttpEndPointContextImpl(this);
         }
     }

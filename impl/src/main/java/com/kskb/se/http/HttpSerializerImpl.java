@@ -3,8 +3,12 @@ package com.kskb.se.http;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 class HttpSerializerImpl implements HttpSerializer {
+
     @Override
     public void serialize(OutputStream output2, HttpResponse response) throws HttpServerException {
         try {

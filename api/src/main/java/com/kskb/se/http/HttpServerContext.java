@@ -25,9 +25,11 @@ public interface HttpServerContext {
     // Helpers
     HttpResourceLocator locator();
     HttpResourceLoader loader();
+    HttpErrorHandlers errorHandlers();
 
     Optional<HttpParser> parser();
     Optional<HttpSerializer> serializer();
+
 
     interface Builder {
         Builder withPort(int port);
@@ -38,9 +40,9 @@ public interface HttpServerContext {
         Builder withKeyStorePassword(char[] password);
 
         Builder withLocator(HttpResourceLocator resourceLocator);
+        Builder addErrorHandler(HttpErrorHandler testHttpServer);
 
         HttpServerContext build();
-
     }
 }
 
@@ -59,6 +61,7 @@ class HttpServerContextImpl implements HttpServerContext {
     private final HttpSerializer serializer;
     private final HttpResourceLocator locator;
     private final HttpResourceLoader loader;
+    private final HttpErrorHandlers errorHandlers;
 
     private HttpServerContextImpl(Builder builder) {
         this.port = builder.port;
@@ -70,6 +73,7 @@ class HttpServerContextImpl implements HttpServerContext {
         this.serializer = builder.serializer;
         this.locator = builder.locator;
         this.loader = builder.loader;
+        this.errorHandlers = builder.errorHandlers;
     }
 
     static Builder builder() {
@@ -141,6 +145,11 @@ class HttpServerContextImpl implements HttpServerContext {
         return this.locator;
     }
 
+    @Override
+    public HttpErrorHandlers errorHandlers() {
+        return this.errorHandlers;
+    }
+
     static class Builder implements HttpServerContext.Builder {
         private int port = HttpServer.DEFAULT_PORT;
 
@@ -153,6 +162,7 @@ class HttpServerContextImpl implements HttpServerContext {
         private HttpSerializer serializer;
         private HttpResourceLocator locator;
         private HttpResourceLoader loader;
+        private final HttpErrorHandlers errorHandlers = HttpErrorHandlers.create();
 
         @Override
         public HttpServerContext.Builder withPort(int port) {
@@ -191,7 +201,15 @@ class HttpServerContextImpl implements HttpServerContext {
         }
 
         @Override
+        public HttpServerContext.Builder addErrorHandler(HttpErrorHandler errorHandler) {
+            this.errorHandlers.add(errorHandler);
+            return this;
+        }
+
+        @Override
         public HttpServerContext build() {
+            if (this.errorHandlers.isEmpty())
+                this.errorHandlers.add(new HttpConsoleLogger());
             this.locator = this.locator != null ? this.locator :
                HttpResourceLocator.builder().withDefaults("impl").build();
             this.loader = this.loader != null ? this.loader :

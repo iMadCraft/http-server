@@ -2,6 +2,7 @@ package com.kskb.se.http;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Random;
 import java.util.function.Consumer;
 
 import static com.kskb.se.http.HttpMethod.GET;
@@ -76,20 +77,32 @@ public class Main {
                .ifPresent(payload -> {
                    final var data = payload.toString();
                    final var formParts = data.split("&");
+                   String username = null;
                    for (final var part: formParts) {
                        final var pair = part.split("=");
                        if ("username".equals(pair[0])) {
                            System.out.println("Username: " + pair[1]);
+                           username = pair[1];
                        }
                        else if ("password".equals(pair[0])) {
                            System.out.println("Password: " + pair[1]);
                        }
                    }
-               });
 
-            context.response()
-               .withResponseCode(200);
+                   final var loginCookie = context.session().cookie();
+                   loginCookie.path = "/";
+                   if (username != null)
+                      context.session().dataset().put("username", username);
+
+                   context.cookies()
+                      .set(loginCookie);
+
+                   context.response()
+                      .withResponseCode(302)
+                      .addHeader(HttpHeader.create("Location", "https://localhost:8081/index.html"));
+               });
         });
         server.start();
     }
 }
+

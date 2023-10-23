@@ -6,13 +6,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
+import java.util.Arrays;
 
 class HttpParserImpl implements HttpParser {
-    private static final List<String> SUPPORTED_VERSION = List.of("1.0", "1.1", "1.2", "1.3");
 
     @Override
-    public boolean parse(HttpRequest.Builder builder, InputStream inputStream) throws HttpServerException {
+    public boolean parse(HttpRequest.Builder builder, InputStream inputStream) {
         final var requestBuilder = HttpBufferedReader.create(builder, inputStream)
            .read()
                .onError(Throwable.class, Throwable::printStackTrace)
@@ -32,7 +31,7 @@ interface HttpBufferedReader {
 }
 
 class HttpBufferedReaderImpl implements HttpBufferedReader {
-    private static int BLOCK_SIZE = 4096;
+    private static final int BLOCK_SIZE = 4096;
     private static final int CAPACITY = 4096 * 4096; // Max: 16MB request
 
     private final InputStream stream;
@@ -77,7 +76,7 @@ class HttpBufferedReaderImpl implements HttpBufferedReader {
                     rb += this.stream.read(buf, BLOCK_SIZE, CAPACITY - BLOCK_SIZE);
                 }
                 else
-                    return Result.error(UnknownRequest.create(buf));
+                    return Result.error(UnknownRequest.create(Arrays.copyOf(buf, rb)));
             }
             size = rb;
         } catch (IOException e) {
@@ -115,7 +114,7 @@ class HttpBufferedReaderImpl implements HttpBufferedReader {
                buf[2] == 'T' &&
                buf[3] == SPACE) {
                 builder.withMethod(HttpMethod.PUT);
-                index += 5;
+                index += 4;
             } else if (buf[0] == 'D' &&
                buf[1] == 'E' &&
                buf[2] == 'L' &&
@@ -126,7 +125,7 @@ class HttpBufferedReaderImpl implements HttpBufferedReader {
                 builder.withMethod(HttpMethod.DELETE);
                 index += 7;
             } else {
-                return Result.error(UnknownRequest.create(buf));
+                return Result.error(UnknownRequest.create(Arrays.copyOf(buf, size)));
             }
         }
 
@@ -145,7 +144,7 @@ class HttpBufferedReaderImpl implements HttpBufferedReader {
                 index = i;
             }
             else {
-                return Result.error(UnknownRequest.create(buf));
+                return Result.error(UnknownRequest.create(Arrays.copyOf(buf, size)));
             }
         }
 
@@ -158,7 +157,7 @@ class HttpBufferedReaderImpl implements HttpBufferedReader {
                 index = i + 2;
             }
             else {
-                return Result.error(UnknownRequest.create(buf));
+                return Result.error(UnknownRequest.create(Arrays.copyOf(buf, size)));
             }
         }
 
@@ -166,7 +165,7 @@ class HttpBufferedReaderImpl implements HttpBufferedReader {
         {
             i = index;
             String name, value;
-            while (i < (size + 1) && buf[i] != CARRIER_RETURN && buf[i + 1] != LINE_FEED) {
+            while ( (i + 1) < size && buf[i] != CARRIER_RETURN && buf[i + 1] != LINE_FEED) {
                 while (i < size && buf[i] != SPACE) i++;
                 if (buf[i] == SPACE) {
                     if (buf[i - 1] == ':') {
@@ -177,7 +176,7 @@ class HttpBufferedReaderImpl implements HttpBufferedReader {
                     }
                     index = i + 1;
                 } else {
-                    return Result.error(UnknownRequest.create(buf));
+                    return Result.error(UnknownRequest.create(Arrays.copyOf(buf, size)));
                 }
 
                 while (i < (size + 1) && buf[i] != CARRIER_RETURN && buf[i + 1] != LINE_FEED) i++;
@@ -186,7 +185,7 @@ class HttpBufferedReaderImpl implements HttpBufferedReader {
                     builder.addHeader(HttpHeader.create(name, value));
                     index = i + 2;
                 } else {
-                    return Result.error(UnknownRequest.create(buf));
+                    return Result.error(UnknownRequest.create(Arrays.copyOf(buf, size)));
                 }
                 i += 2;
             }

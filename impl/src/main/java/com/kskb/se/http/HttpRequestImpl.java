@@ -8,6 +8,7 @@ class HttpRequestImpl extends AbstractHttpPacket implements HttpRequest {
     private final HttpMethod method;
     private final String version;
     private final URI uri;
+    private final Cookies cookies;
 
     private Map<String, String> params = null;
 
@@ -16,6 +17,7 @@ class HttpRequestImpl extends AbstractHttpPacket implements HttpRequest {
         this.method = builder.method;
         this.uri = builder.uri;
         this.version = builder.version;
+        this.cookies = builder.cookies;
     }
 
     @Override
@@ -41,6 +43,11 @@ class HttpRequestImpl extends AbstractHttpPacket implements HttpRequest {
     @Override
     public String query(String key) {
         return findParam(key);
+    }
+
+    @Override
+    public Cookies cookies() {
+        return this.cookies;
     }
 
     private String findParam(String key) {
@@ -72,6 +79,7 @@ class HttpRequestImpl extends AbstractHttpPacket implements HttpRequest {
         private HttpMethod method;
         private URI uri;
         private String version;
+        private Cookies cookies;
 
         @Override
         public HttpMethod method() {
@@ -107,7 +115,15 @@ class HttpRequestImpl extends AbstractHttpPacket implements HttpRequest {
         }
 
         @Override
+        public HttpRequest.Builder withCookies(Cookies cookies) {
+            this.cookies = cookies;
+            return this;
+        }
+
+        @Override
         public HttpRequest build() {
+            if (cookies == null)
+                cookies = Cookies.create();
             return new HttpRequestImpl(this);
         }
     }

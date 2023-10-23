@@ -14,8 +14,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.kskb.se.http.HttpMethod.GET;
-
 class HttpServerImpl implements HttpServer {
     private static final int MAX_ERROR = 10;
     private static final Map<String, Class<? extends HttpResource>> RESOURCE_MAP = new HashMap<>();
@@ -41,6 +39,9 @@ class HttpServerImpl implements HttpServer {
     private final HttpRewriters rewriters = HttpRewriters.create();
     private final HttpResourceLoader loader;
     private final boolean requireClientAuthentication;
+    private final SessionManager sessionManager = new SessionManagerImpl();
+    private final HttpErrorHandlers errorHandlers;
+
 
     // Sensitive information will be sanitized after usage
     private char[] trustStorePassword;
@@ -61,13 +62,52 @@ class HttpServerImpl implements HttpServer {
         this.requireClientAuthentication = context.requireClientAuthentication();
         this.locator = context.locator();
         this.loader = context.loader();
+        this.errorHandlers = context.errorHandlers();
         this.parser = context.parser()
            .orElse(new HttpParserImpl());
         this.serializer = context.serializer()
            .orElse(new HttpSerializerImpl());
     }
 
-    public ServerSocket createEncryptedServerSocket() throws Exception {
+    @Override
+    public void start() throws HttpServerException {
+        state = HttpServerState.STARTED;
+        serverSocket = createServerSocket();
+        state = HttpServerState.RUNNING;
+        run();
+    }
+
+    @Override
+    public void stop() throws HttpServerException {
+        state = HttpServerState.STOP;
+    }
+
+    @Override
+    public HttpEndPoints endPoints() {
+        return this.endPoints;
+    }
+
+    @Override
+    public HttpRewriters rewriters() {
+        return this.rewriters;
+    }
+
+    @Override
+    public HttpResourceLoader resourceLoader() {
+        return loader;
+    }
+
+    @Override
+    public HttpServerState state() {
+        return this.state;
+    }
+
+    private void sanitize() {
+        this.trustStorePassword = null;
+        this.keyStorePassword = null;
+    }
+
+    private ServerSocket createEncryptedServerSocket() throws Exception {
         assert trustStoreName != null && ! trustStoreName.isEmpty();
         assert trustStorePassword != null && trustStorePassword.length != 0;
         assert keyStoreName != null && ! keyStoreName.isEmpty();
@@ -96,8 +136,8 @@ class HttpServerImpl implements HttpServer {
 
         SSLContext ctx = SSLContext.getInstance("TLS");
         ctx.init(keyManagerFactory.getKeyManagers(),
-                 trustManagerFactory.getTrustManagers(),
-                 SecureRandom.getInstanceStrong());
+           trustManagerFactory.getTrustManagers(),
+           SecureRandom.getInstanceStrong());
         SSLServerSocketFactory factory = ctx.getServerSocketFactory();
         SSLServerSocket ss =
            (SSLServerSocket) factory.createServerSocket(port, backlog, addr);
@@ -108,14 +148,12 @@ class HttpServerImpl implements HttpServer {
         return ss;
     }
 
-    public ServerSocket createUnencrypedServerSocket() throws IOException {
+    private ServerSocket createUnencrypedServerSocket() throws IOException {
         return new ServerSocket(port, backlog, addr);
     }
 
-    @Override
-    public void start() throws HttpServerException {
-        state = HttpServerState.STARTED;
-
+    private ServerSocket createServerSocket() throws HttpServerException {
+        final ServerSocket serverSocket;
         try {
             if (trustStoreName != null && ! trustStoreName.isEmpty()) {
                 System.out.println("Starting https server listening to port " + port);
@@ -128,42 +166,16 @@ class HttpServerImpl implements HttpServer {
         } catch (Exception e) {
             throw new HttpServerException("Unable to start server", e);
         }
-
-        state = HttpServerState.RUNNING;
-        run();
+        return serverSocket;
     }
 
-    @Override
-    public void stop() throws HttpServerException {
-        state = HttpServerState.STOP;
-    }
-
-    @Override
-    public HttpEndPoints endPoints() {
-        return this.endPoints;
-    }
-
-
-    @Override
-    public HttpRewriters rewriters() {
-        return this.rewriters;
-    }
-
-
-    @Override
-    public HttpResourceLoader resourceLoader() {
-        return loader;
-    }
-
-    private void sanitize() {
-        this.trustStorePassword = null;
-        this.keyStorePassword = null;
-    }
 
     private void run() throws HttpServerException {
         // Used for a simple infinite error-loop prevention,
         // reset after a successful attempt
         int errorCounter = 0;
+
+        final HttpErrorHandlerContext.Builder errorBuilder = HttpErrorHandlerContext.builder();
 
         // Main Loop. Following flow:
         //    * Accept client request
@@ -174,6 +186,9 @@ class HttpServerImpl implements HttpServer {
         while (isRunning()) {
             HttpConnection connection = null;
             try {
+                // Reset state of error handler
+                errorBuilder.clear();
+
                 System.out.println("Listening to client ...");
 
                 // Blocking call. Wait until a client socket has been accepted
@@ -196,7 +211,7 @@ class HttpServerImpl implements HttpServer {
                 }
 
                 // Execute all rewrites
-                HttpRewriterContext rewriterContext = HttpRewriterContextImpl.builder()
+                final HttpRewriterContext rewriterContext = HttpRewriterContextImpl.builder()
                    .withRequestBuilder(requestBuilder)
                    .withResponseBuilder(responseBuilder)
                    .build();
@@ -204,20 +219,38 @@ class HttpServerImpl implements HttpServer {
                     rewriter.modify(rewriterContext);
                 }
 
+                // Extract cookies from request
+                final List<HttpHeader> cookieHeaders = requestBuilder.headers().stream()
+                   .filter(header -> "Cookies".equals(header.name()))
+                   .toList();
+                final Cookies requestCookies = Cookies.create();
+                for (final var header: cookieHeaders) {
+                    Cookie.from(header.value());
+                }
+
                 // All modification to request should be final,
                 // Create request from builder
-                final HttpRequest request = requestBuilder.build();
+                final HttpRequest request = requestBuilder
+                   .withCookies(requestCookies)
+                   .build();
+                errorBuilder.withRequest(request);
 
                 // Populate with server defaults
                 responseBuilder
                    .withResponseCode(200)
                    .addHeader(HttpHeader.create("Server", "Demo Server"))
-                   .addHeader(HttpHeader.create("Date", date + " CET"));
+                   // TODO: minor, remove CEST, should be extract from date
+                   .addHeader(HttpHeader.create("Date", date + " CEST"));
+
+                Session session = sessionManager.find(request);
+                Cookies cookies = session.cookies();
 
                 // Find matching endpoints and execute
                 final HttpEndPointContext endPointContext = HttpEndPointContext.builder()
                    .withRequest(request)
                    .withResponseBuilder(responseBuilder)
+                   .withCookies(cookies)
+                   .withSession(session)
                    .build();
                 final var matches = endPoints.match(request);
                 for(HttpEndPoint endPoint: matches) {
@@ -246,7 +279,6 @@ class HttpServerImpl implements HttpServer {
                         }
                     }
                 }
-
                 // Check if any endpoint determined the request
                 // resource did not exists. Return 404.
                 else if (responseBuilder.code() == 404 && responseBuilder.hasNotPayload()) {
@@ -254,7 +286,13 @@ class HttpServerImpl implements HttpServer {
                        .withPayload(DEFAULT_PAGE_404);
                 }
 
+                // Ask the cookie manager to determined which cookie should be
+                // part of the reply.
+                // if (responseBuilder.code() >= 200 && responseBuilder.code() < 400)
+                //    cookieManager.modified(cookies, responseBuilder);
+
                 final var response = responseBuilder.build();
+                errorBuilder.withResponse(response);
                 System.out.println("Respond with " + response.code());
 
                 // Serialize and send response back to client
@@ -263,19 +301,14 @@ class HttpServerImpl implements HttpServer {
                 // Reset error counter
                 errorCounter = 0;
             }
-            catch (HttpServerException e) {
-                System.err.println(e.getMessage());
-                if (e.getCause() != null) {
-                    e.getCause().printStackTrace();
+            catch (Throwable e) {
+                // Send exception to error handlers
+                final var errorContext = errorBuilder.build();
+                for (final var errorHandler: this.errorHandlers) {
+                    errorHandler.onException(errorContext, e);
                 }
-                if (errorCounter < MAX_ERROR) {
-                    errorCounter++;
-                } else {
-                    stop();
-                }
-            }
-            catch (Exception e) {
-                e.printStackTrace();
+
+                // Increase infinite error-loop fail-safe
                 if (errorCounter < MAX_ERROR) {
                     errorCounter++;
                 } else {
@@ -283,16 +316,14 @@ class HttpServerImpl implements HttpServer {
                 }
             }
             finally {
+                // Always close connection before attempting
+                // to establish a new connection
                 if (connection != null) {
                     connection.close();
                 }
                 connection = null;
             }
         }
-    }
-
-    private boolean isRunning() {
-        return state == HttpServerState.RUNNING;
     }
 
     private HttpConnection accept() throws HttpServerException {

@@ -11,15 +11,7 @@ public interface HttpResponse extends HttpPacket {
    }
    Optional<HttpResource> payload();
 
-   default String codeAsText() {
-      // TODO: critical, add more!
-      return switch (code()) {
-         case 404 -> "Not Found";
-         case 500 -> "Internal Error";
-         default -> "OK";
-      };
-   }
-
+   String codeAsText();
 
    interface Builder extends HttpPacket.Builder<Builder> {
       int code();
