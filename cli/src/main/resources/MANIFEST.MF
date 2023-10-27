@@ -1,4 +1,4 @@
 Manifest-Version: 1.0
 Created-By: Demo Server
 Build-Jdk-Spec: 21
-Main-Class: com.kskb.se.http.Main
+Main-Class: com.kskb.se.http.CliMain

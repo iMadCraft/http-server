@@ -8,7 +8,7 @@ import java.util.function.Consumer;
 import static com.kskb.se.http.HttpMethod.GET;
 import static com.kskb.se.http.HttpMethod.POST;
 
-public class Main {
+public class SampleMain {
     public static void main(final String[] args) throws HttpServerException {
         final var locator = HttpResourceLocator.builder()
            .withDefaults("sample")

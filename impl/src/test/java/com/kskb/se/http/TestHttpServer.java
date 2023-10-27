@@ -16,6 +16,8 @@ import java.nio.charset.StandardCharsets;
 
 import static com.kskb.se.http.HttpMethod.*;
 import static org.junit.Assert.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 
 public class TestHttpServer implements HttpErrorHandler {

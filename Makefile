@@ -1,5 +1,3 @@
-EMPTY :=
-
 CP ?= cp
 MKDIRS ?= mkdir -p
 RMDIRS ?= rm -rfv
@@ -10,35 +8,11 @@ JAVA ?= java
 CURL ?= curl
 
 __DIR__  = $(dir $(@))
-__VDIR__ = $(dir $(*))
-
-SRC_JAVA_DIR := src/main/java
 BUILD_JAR_DIR := target/classes
-
 
 JAVA_DEBUG_PORT ?= 5005
 JAVA_DEBUG_OPTS ?= -agentlib:jdwp=transport=dt_socket,address=$(JAVA_DEBUG_PORT),server=y,suspend=n
 JAVA_OPTS ?=
-
-JAVA_API_OBJS = $(shell cd api/$(BUILD_JAR_DIR) && find . -name "*.class")
-JAVA_IMPL_OBJS = $(shell cd impl/$(BUILD_JAR_DIR) && find . -name "*.class")
-JAVA_CLI_OBJS = $(shell cd cli/$(BUILD_JAR_DIR) && find . -name "*.class")
-JAVA_SAMPLE_OBJS = $(shell cd sample/$(BUILD_JAR_DIR) && find . -name "*.class")
-
-SAMPLE_RESOURCE_FILES := \
-	secret/server.keystore \
-	secret/server.truststore
-
-SAMPLE_RESOURCE_SOURCES := \
-	$(addprefix sample/src/main/resources/,$(SAMPLE_RESOURCE_FILES))
-
-SAMPLE_BUNDLE_OBJS := \
-	$(SAMPLE_RESOURCE_SOURCES)
-
-JAVA_OBJS := \
-	$(JAVA_API_OBJS) \
-	$(JAVA_IMPL_OBJS) \
-	$(JAVA_SAMPLE_OBJS)
 
 .PHONY: all clean clean-% build build-% run run-% debug debug-% download download-%
 all: clean-java build-java
@@ -91,16 +65,10 @@ DEMO_TARGETS := \
 	$(BUILD_JAR_DIR)/htdocs/css/style.css \
 	$(BUILD_JAR_DIR)/htdocs/js/htmx.min.js \
 
-
 libexec/demo-0.1.0.jar: $(DEMO_TARGETS)
 	@$(MKDIRS) $(__DIR__)
 	$(RM) $(@)
-#	# Copy target directories
 	$(CP) -rv */$(BUILD_JAR_DIR)/* $(BUILD_JAR_DIR)
-#	# Copy target files
-#	# $(CP) -v $(SAMPLE_BUNDLE_OBJS) $(BUILD_JAVA_DIR)
-#	#
-#	# (cd $(BUILD_JAVA_DIR) && zip ../../$(@) $(subst $$,\$$,$(JAVA_OBJS)) META-INF/MANIFEST.MF)
 	(cd $(BUILD_JAR_DIR) && zip -r ../../$(@) *)
 
 bin/demo.jar: libexec/demo-0.1.0.jar
