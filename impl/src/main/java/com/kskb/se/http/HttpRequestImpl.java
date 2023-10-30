@@ -9,8 +9,7 @@ class HttpRequestImpl extends AbstractHttpPacket implements HttpRequest {
     private final String version;
     private final URI uri;
     private final Cookies cookies;
-
-    private Map<String, String> params = null;
+    private final Map<String, String> params;
 
     private HttpRequestImpl(Builder builder) {
         super(builder);
@@ -18,6 +17,7 @@ class HttpRequestImpl extends AbstractHttpPacket implements HttpRequest {
         this.uri = builder.uri;
         this.version = builder.version;
         this.cookies = builder.cookies;
+        this.params = builder.params;
     }
 
     @Override
@@ -42,7 +42,7 @@ class HttpRequestImpl extends AbstractHttpPacket implements HttpRequest {
 
     @Override
     public String query(String key) {
-        return findParam(key);
+        return findParam(uri, params, key);
     }
 
     @Override
@@ -50,15 +50,12 @@ class HttpRequestImpl extends AbstractHttpPacket implements HttpRequest {
         return this.cookies;
     }
 
-    private String findParam(String key) {
+    private static String findParam(URI uri, Map<String, String> params, String key) {
         if ( uri.getQuery() != null) {
-            if ( params == null) {
-                params = new HashMap<>();
-                final var paramList = uri.getQuery().split("&");
-                for (final var param: paramList) {
-                    final var parts = param.split("=");
-                    params.put(parts[0], parts.length > 1 ? parts[1] : "");
-                }
+            final var paramList = uri.getQuery().split("&");
+            for (final var param: paramList) {
+                final var parts = param.split("=");
+                params.put(parts[0], parts.length > 1 ? parts[1] : "");
             }
             return params.get(key);
         }
@@ -81,6 +78,8 @@ class HttpRequestImpl extends AbstractHttpPacket implements HttpRequest {
         private String version;
         private Cookies cookies;
 
+        private final Map<String, String> params = new HashMap<>();
+
         @Override
         public HttpMethod method() {
             return this.method;
@@ -97,19 +96,34 @@ class HttpRequestImpl extends AbstractHttpPacket implements HttpRequest {
         }
 
         @Override
-        public Builder withMethod(HttpMethod method) {
+        public String originalUrl() {
+            return this.uri.getPath();
+        }
+
+        @Override
+        public String query(String key) {
+            return findParam(uri, params, key);
+        }
+
+        @Override
+        public Cookies cookies() {
+            return cookies;
+        }
+
+        @Override
+        public HttpRequest.Builder withMethod(HttpMethod method) {
             this.method = method;
             return this;
         }
 
         @Override
-        public Builder withUri(URI uri) {
+        public HttpRequest.Builder withUri(URI uri) {
             this.uri = uri;
             return this;
         }
 
         @Override
-        public Builder withVersion(String version) {
+        public HttpRequest.Builder withVersion(String version) {
             this.version = version;
             return this;
         }

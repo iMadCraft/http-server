@@ -8,7 +8,7 @@ import java.util.function.Consumer;
 
 import static com.kskb.se.http.Session.SESSION_COOKIE_NAME;
 
-class SessionManagerImpl implements SessionManager {
+public class SessionManagerImpl implements SessionManager {
    List<Session> sessions = new ArrayList<>();
 
    @Override
@@ -30,12 +30,27 @@ class SessionManagerImpl implements SessionManager {
             }
          }
       }
-      Session.Builder builder = Session.builder()
-         .withId(UUID.randomUUID());
+      Session.Builder builder = createSessionBuilder();
       if (newSession != null)
          newSession.accept(builder);
       Session session = builder.build();
       sessions.add(session);
       return session;
+   }
+
+   @Override
+   public void modified(final Session session,
+                        final HttpRequest request,
+                        final HttpResponse.Builder responseBuilder)
+   {
+      final var sessionHeader = HttpHeader.create("Set-Cookie", SESSION_COOKIE_NAME + "=" + session.id() +
+             "; Path=/"
+          );
+      responseBuilder.addHeader(sessionHeader);
+   }
+
+   protected Session.Builder createSessionBuilder() {
+      return Session.builder()
+         .withId(UUID.randomUUID());
    }
 }

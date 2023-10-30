@@ -5,6 +5,7 @@ import java.util.*;
 public interface Cookies extends Iterable<Cookie>, Cloneable {
    Optional<Cookie> get(String name);
    boolean set(Cookie cookie);
+   boolean setAll(Iterable<Cookie> cookie);
    boolean delete(String name);
    default boolean delete(Cookie cookie) {
       return delete(cookie.name);
@@ -31,6 +32,13 @@ class CookiesImpl implements Cookies {
    public boolean set(Cookie cookie) {
       delete(cookie.name);
       return cookies.add(cookie);
+   }
+
+   @Override
+   public boolean setAll(final Iterable<Cookie> cookies) {
+      for (final var cookie: cookies)
+         set(cookie);
+      return true;
    }
 
    @Override

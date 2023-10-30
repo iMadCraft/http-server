@@ -1,17 +1,17 @@
 package com.kskb.se.http;
 
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Stream;
 
 public interface HttpHeaders extends Iterable<HttpHeader> {
     long size();
     Optional<String> get(String name);
+    Stream<HttpHeader> stream();
 
     static HttpHeaders create(List<HttpHeader> list) {
         return new HttpHeadersImpl(list);
     }
+
 }
 
 class HttpHeadersImpl implements HttpHeaders {
@@ -37,5 +37,10 @@ class HttpHeadersImpl implements HttpHeaders {
             }
         }
         return Optional.ofNullable(result);
+    }
+
+    @Override
+    public Stream<HttpHeader> stream() {
+        return list.stream();
     }
 }

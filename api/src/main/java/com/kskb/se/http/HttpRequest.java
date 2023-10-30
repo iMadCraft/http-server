@@ -1,7 +1,6 @@
 package com.kskb.se.http;
 
 import java.net.URI;
-import java.util.Calendar;
 
 public interface HttpRequest extends HttpPacket, Request {
     HttpMethod method();
@@ -19,15 +18,12 @@ public interface HttpRequest extends HttpPacket, Request {
         return parts.length > 1 ? parts[parts.length - 1] : null;
     }
 
-    interface Builder extends HttpPacket.Builder<Builder> {
-        HttpMethod method();
-        URI uri();
-        String version();
 
-        Builder withMethod(HttpMethod method);
-        Builder withUri(URI uri);
-        Builder withVersion(String version);
-        Builder withCookies(Cookies cookies);
+    interface Builder extends HttpRequest, HttpPacket.Builder<Builder> {
+        HttpRequest.Builder withMethod(HttpMethod method);
+        HttpRequest.Builder withUri(URI uri);
+        HttpRequest.Builder withVersion(String version);
+        HttpRequest.Builder withCookies(Cookies cookies);
 
         HttpRequest build();
 

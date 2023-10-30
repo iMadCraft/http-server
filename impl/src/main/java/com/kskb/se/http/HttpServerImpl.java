@@ -39,7 +39,7 @@ class HttpServerImpl implements HttpServer {
     private final HttpRewriters rewriters = HttpRewriters.create();
     private final HttpResourceLoader loader;
     private final boolean requireClientAuthentication;
-    private final SessionManager sessionManager = new SessionManagerImpl();
+    private final SessionManager sessionManager;
     private final HttpErrorHandlers errorHandlers;
 
 
@@ -67,6 +67,8 @@ class HttpServerImpl implements HttpServer {
            .orElse(new HttpParserImpl());
         this.serializer = context.serializer()
            .orElse(new HttpSerializerImpl());
+        this.sessionManager = context.sessionManager() != null ?
+           context.sessionManager() : new SessionManagerImpl();
     }
 
     @Override
@@ -221,11 +223,11 @@ class HttpServerImpl implements HttpServer {
 
                 // Extract cookies from request
                 final List<HttpHeader> cookieHeaders = requestBuilder.headers().stream()
-                   .filter(header -> "Cookies".equals(header.name()))
+                   .filter(header -> "Cookie".equals(header.name()))
                    .toList();
                 final Cookies requestCookies = Cookies.create();
                 for (final var header: cookieHeaders) {
-                    Cookie.from(header.value());
+                    requestCookies.setAll(Cookie.from(header.value()));
                 }
 
                 // All modification to request should be final,
@@ -235,6 +237,9 @@ class HttpServerImpl implements HttpServer {
                    .build();
                 errorBuilder.withRequest(request);
 
+                // Find session
+                Session session = sessionManager.find(requestBuilder);
+
                 // Populate with server defaults
                 responseBuilder
                    .withResponseCode(200)
@@ -242,14 +247,11 @@ class HttpServerImpl implements HttpServer {
                    // TODO: minor, remove CEST, should be extract from date
                    .addHeader(HttpHeader.create("Date", date + " CEST"));
 
-                Session session = sessionManager.find(request);
-                Cookies cookies = session.cookies();
-
                 // Find matching endpoints and execute
                 final HttpEndPointContext endPointContext = HttpEndPointContext.builder()
                    .withRequest(request)
                    .withResponseBuilder(responseBuilder)
-                   .withCookies(cookies)
+                   .withCookies(session.cookies())
                    .withSession(session)
                    .build();
                 final var matches = endPoints.match(request);
@@ -288,8 +290,8 @@ class HttpServerImpl implements HttpServer {
 
                 // Ask the cookie manager to determined which cookie should be
                 // part of the reply.
-                // if (responseBuilder.code() >= 200 && responseBuilder.code() < 400)
-                //    cookieManager.modified(cookies, responseBuilder);
+                if (responseBuilder.code() >= 200 && responseBuilder.code() < 400)
+                   sessionManager.modified(session, request, responseBuilder);
 
                 final var response = responseBuilder.build();
                 errorBuilder.withResponse(response);

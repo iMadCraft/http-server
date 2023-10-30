@@ -37,8 +37,8 @@ abstract class AbstractHttpPacket implements HttpPacket {
       }
 
       @Override
-      public List<HttpHeader> headers() {
-         return this.headers;
+      public HttpHeaders headers() {
+         return HttpHeaders.create(this.headers);
       }
 
       @Override

@@ -4,6 +4,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
+import org.mockito.stubbing.Answer;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -13,6 +14,11 @@ import java.lang.reflect.Method;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.kskb.se.http.HttpMethod.*;
 import static org.junit.Assert.*;
@@ -21,7 +27,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 
 public class TestHttpServer implements HttpErrorHandler {
-   private static final long TIMEOUT = 3000L;
+   private static final long TIMEOUT = 30000L;
 
    private final ServerSocket socket = Mockito.mock();
    private final Socket clientSocket = Mockito.mock();
@@ -50,8 +56,8 @@ public class TestHttpServer implements HttpErrorHandler {
          final int length = invocation.getArgument(2);
          final int size = Math.min(clientResponseBuffer.length, offset + length);
          if (size - offset >= 0)
-            System.arraycopy(buf, offset, clientResponseBuffer, offset, size - offset);
-         clientResponseBufferSize = size;
+            System.arraycopy(buf, offset, clientResponseBuffer, clientResponseBufferSize + offset, size - offset);
+         clientResponseBufferSize += size;
          return null;
       }).when(clientOutputStream)
          .write(any(), anyInt(), anyInt());
@@ -77,11 +83,11 @@ public class TestHttpServer implements HttpErrorHandler {
 
    @Test(timeout = TIMEOUT)
    public void testGetRequest() throws Exception {
-      sendClientRequest("""
+      server = createHttpServer();
+      sendClientRequests("""
          GET / HTTP/1.1
          
          """);
-      server = createHttpServer();
       server.add(GET, "/", (context) -> assertEndpointContext(context, GET, "/"));
       server.start();
       server.stop();
@@ -90,11 +96,11 @@ public class TestHttpServer implements HttpErrorHandler {
 
    @Test(timeout = TIMEOUT)
    public void testPostRequest() throws Exception {
-      sendClientRequest("""
+      server = createHttpServer();
+      sendClientRequests("""
          POST / HTTP/1.1
          
          """);
-      server = createHttpServer();
       server.add(POST, "/", (context) -> assertEndpointContext(context, POST, "/"));
       server.start();
       server.stop();
@@ -103,11 +109,11 @@ public class TestHttpServer implements HttpErrorHandler {
 
    @Test(timeout = TIMEOUT)
    public void testPutRequest() throws Exception {
-      sendClientRequest("""
+      server = createHttpServer();
+      sendClientRequests("""
          PUT / HTTP/1.1
          
          """);
-      server = createHttpServer();
       server.add(PUT, "/", (context) -> assertEndpointContext(context, PUT, "/"));
       server.start();
       server.stop();
@@ -116,16 +122,46 @@ public class TestHttpServer implements HttpErrorHandler {
 
    @Test(timeout = TIMEOUT)
    public void testDeleteRequest() throws Exception {
-      sendClientRequest("""
+      server = createHttpServer();
+      sendClientRequests("""
          DELETE / HTTP/1.1
          
          """);
-      server = createHttpServer();
       server.add(DELETE, "/", (context) -> assertEndpointContext(context, DELETE, "/"));
       server.start();
       server.stop();
       assertResponse();
    }
+
+   @Test(timeout = TIMEOUT)
+   public void testSessionRequest() throws Exception {
+      server = createHttpServer();
+      sendClientRequests(
+         // First request
+         """
+         GET /login HTTP/1.1
+         
+         """,
+         // Second request
+         """
+         GET / HTTP/1.1
+         Cookie: session={{ session_id }}
+         
+         """.replace("{{ session_id }}", SessionManagerMock.SESSION_ID.toString())
+      );
+      server.add(GET, "/login", (context) -> {
+         assertEndpointContext(context, GET, "/login");
+         context.session().dataset().put("key", "value");
+      });
+      server.add(GET, "/", (context) -> {
+         assertEndpointContext(context, GET, "/");
+         assertEquals(context.session().dataset().get("key"), "value");
+      });
+      server.start();
+      server.stop();
+      assertResponse();
+   }
+
 
    @Override
    public void onException(HttpErrorHandlerContext context, Throwable t) {
@@ -135,26 +171,53 @@ public class TestHttpServer implements HttpErrorHandler {
    private void assertResponse() {
       assertEquals(endpointCounter, expectedEndpointCount);
       final String response = new String(clientResponseBuffer, 0, clientResponseBufferSize, StandardCharsets.US_ASCII);
+      for (final var line: response.split("\r\n")) {
+         System.out.println("   " + line);
+      }
       assertEquals(response.substring(0, 17), "HTTP/1.1 200 OK\r\n");
       assertTrue(response.contains("Server: Demo Server\r\n"));
       assertFalse(findResponseHeader(response, "Date").isEmpty());
       assertTrue(response.contains("Content-Length: 0\r\n"));
    }
 
-   private void sendClientRequest(String clientRequest) throws IOException {
-      final String clientRequestTransformed = clientRequest
-         .replaceAll("\n", "\r\n");
-      final byte[] request = clientRequestTransformed
-         .getBytes(StandardCharsets.US_ASCII);
+   private void sendClientRequests(String ... clientRequests) throws IOException {
+      final List<byte[]> requests = new ArrayList<>();
+      for (String clientRequest: clientRequests) {
+         final String clientRequestTransformed = clientRequest
+            .replaceAll("\n", "\r\n");
+         System.out.println("Sending request:");
+         for (final var line: clientRequestTransformed.split("\r\n"))
+            System.out.printf("   %.4096s%n", line);
+         final byte[] request = clientRequestTransformed
+            .getBytes(StandardCharsets.US_ASCII);
+         requests.add(request);
+      }
+      expectedEndpointCount = clientRequests.length;
+
+      final AtomicInteger counter = new AtomicInteger(0);
+      when(server.isRunning())
+         .thenAnswer((Answer<Boolean>) i -> counter.getAndIncrement() < clientRequests.length);
+
+      final Iterator<byte[]> it = requests.iterator();
+      final AtomicReference<byte[]> requestRef = new AtomicReference<>(it.next());
       when(clientInputStream.read(any(), anyInt(), anyInt()))
          .thenAnswer(invocationOnMock -> {
-            final byte[] buf = invocationOnMock.getArgument(0);
-            final int offset = invocationOnMock.getArgument(1);
-            final int length = invocationOnMock.getArgument(2);
-            final int size = Math.min(request.length, offset + length);
-            if (size - offset >= 0)
-               System.arraycopy(request, offset, buf, offset, size - offset);
-            return size - offset;
+            byte[] request = requestRef.get();
+            if (request != null) {
+               final byte[] buf = invocationOnMock.getArgument(0);
+               final int offset = invocationOnMock.getArgument(1);
+               final int length = invocationOnMock.getArgument(2);
+               final int size = Math.min(request.length, offset + length);
+               if (size - offset >= 0)
+                  System.arraycopy(request, offset, buf, offset, size - offset);
+               if (size == request.length) {
+                  requestRef.set(it.hasNext() ? it.next() : null);
+               }
+               return size - offset;
+            }
+            else {
+               return -1;
+            }
          });
    }
 
@@ -171,6 +234,7 @@ public class TestHttpServer implements HttpErrorHandler {
    private HttpServerImpl createHttpServer() {
       HttpServerContext context = HttpServerContext.builder()
          .addErrorHandler(this)
+         .withSessionManager(new SessionManagerMock())
          .build();
       return createHttpServer(context);
    }

@@ -46,11 +46,13 @@ class HttpResourceLoaderImpl implements HttpResourceLoader {
          final var location = property.location();
 
          InputStream stream = null;
-         for (final String candidate: this.locator.getCandidates(location, name)) {
+         final var candidates = this.locator.getCandidates(location, name);
+         for (final String candidate: candidates) {
             try {
                if(candidate.startsWith("resource://")) {
                   final var strippedPath = candidate.substring("resource://".length())
                      .replaceAll("//", "/");
+
                   stream = HttpResourceLoader.class.getResourceAsStream(strippedPath);
                }
                else {
@@ -65,13 +67,22 @@ class HttpResourceLoaderImpl implements HttpResourceLoader {
                }
             } catch (IOException ignored) {}
 
-            if (stream != null)
+            if (stream != null) {
+               System.out.printf("Loaded %.4096s%n", candidate);
                break;
+            }
+            else {
+               System.out.printf("Candidate %.4096s does not exists%n", candidate);
+            }
          }
 
          // Resource does not exist or is not allowed
-         if (stream == null)
+         if (stream == null) {
+            if (candidates.iterator().hasNext()) {
+               System.out.printf("No candidates for %.4096s was found%n", name);
+            }
             return null;
+         }
 
          final Object arg;
          final Method method;

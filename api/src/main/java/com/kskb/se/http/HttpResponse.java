@@ -16,8 +16,8 @@ public interface HttpResponse extends HttpPacket {
    interface Builder extends HttpPacket.Builder<Builder> {
       int code();
 
-      Builder withResponseCode(int code);
-      Builder withDetails(String message);
+      HttpResponse.Builder withResponseCode(int code);
+      HttpResponse.Builder withDetails(String message);
 
       HttpResponse build();
 

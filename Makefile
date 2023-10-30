@@ -38,7 +38,7 @@ download-dep-javascript: \
 build-java: download-dep-javascript
 	$(MVN) package
 
-$(BUILD_JAR_DIR)/META-INF/MANIFEST.MF: cli/src/main/resources/MANIFEST.MF
+$(BUILD_JAR_DIR)/META-INF/MANIFEST.MF: sample/src/main/resources/MANIFEST.MF
 	@$(MKDIRS) $(__DIR__)
 	$(CP) $(<) $(@)
 
@@ -68,7 +68,7 @@ DEMO_TARGETS := \
 libexec/demo-0.1.0.jar: $(DEMO_TARGETS)
 	@$(MKDIRS) $(__DIR__)
 	$(RM) $(@)
-	$(CP) -rv */$(BUILD_JAR_DIR)/* $(BUILD_JAR_DIR)
+	$(CP) -rv api/$(BUILD_JAR_DIR)/* impl/$(BUILD_JAR_DIR)/* sample/$(BUILD_JAR_DIR)/* $(BUILD_JAR_DIR)
 	(cd $(BUILD_JAR_DIR) && zip -r ../../$(@) *)
 
 bin/demo.jar: libexec/demo-0.1.0.jar

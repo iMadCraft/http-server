@@ -26,6 +26,7 @@ public interface HttpServerContext {
     HttpResourceLocator locator();
     HttpResourceLoader loader();
     HttpErrorHandlers errorHandlers();
+    SessionManager sessionManager();
 
     Optional<HttpParser> parser();
     Optional<HttpSerializer> serializer();
@@ -41,8 +42,10 @@ public interface HttpServerContext {
 
         Builder withLocator(HttpResourceLocator resourceLocator);
         Builder addErrorHandler(HttpErrorHandler testHttpServer);
+        Builder withSessionManager(SessionManager sessionManager);
 
         HttpServerContext build();
+
     }
 }
 
@@ -62,6 +65,7 @@ class HttpServerContextImpl implements HttpServerContext {
     private final HttpResourceLocator locator;
     private final HttpResourceLoader loader;
     private final HttpErrorHandlers errorHandlers;
+    private final SessionManager sessionManager;
 
     private HttpServerContextImpl(Builder builder) {
         this.port = builder.port;
@@ -74,6 +78,7 @@ class HttpServerContextImpl implements HttpServerContext {
         this.locator = builder.locator;
         this.loader = builder.loader;
         this.errorHandlers = builder.errorHandlers;
+        this.sessionManager = builder.sessionManager;
     }
 
     static Builder builder() {
@@ -150,6 +155,11 @@ class HttpServerContextImpl implements HttpServerContext {
         return this.errorHandlers;
     }
 
+    @Override
+    public SessionManager sessionManager() {
+        return this.sessionManager;
+    }
+
     static class Builder implements HttpServerContext.Builder {
         private int port = HttpServer.DEFAULT_PORT;
 
@@ -163,6 +173,7 @@ class HttpServerContextImpl implements HttpServerContext {
         private HttpResourceLocator locator;
         private HttpResourceLoader loader;
         private final HttpErrorHandlers errorHandlers = HttpErrorHandlers.create();
+        private SessionManager sessionManager;
 
         @Override
         public HttpServerContext.Builder withPort(int port) {
@@ -203,6 +214,12 @@ class HttpServerContextImpl implements HttpServerContext {
         @Override
         public HttpServerContext.Builder addErrorHandler(HttpErrorHandler errorHandler) {
             this.errorHandlers.add(errorHandler);
+            return this;
+        }
+
+        @Override
+        public HttpServerContext.Builder withSessionManager(SessionManager sessionManager) {
+            this.sessionManager = sessionManager;
             return this;
         }
 
