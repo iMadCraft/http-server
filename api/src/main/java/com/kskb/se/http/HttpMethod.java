@@ -4,7 +4,7 @@ public enum HttpMethod {
     GET,
     POST,
     PUT,
-    DELETE;
+    DELETE, CONNECT;
 
     public static HttpMethod softValueOf(String method) {
         HttpMethod result = null;

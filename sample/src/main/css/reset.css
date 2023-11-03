@@ -6,11 +6,12 @@
 html, body {
     padding: 0;
     margin: 0;
+    font-size: 16pt;
 }
 
-h1 { font-size: 24pt; }
-h2 { font-size: 20pt; }
-h3 { font-size: 16pt; }
-h4 { font-size: 14pt; }
-p, h5, h6 { font-size: 12pt; }
+h1 { font-size: 26pt; }
+h2 { font-size: 22pt; }
+h3 { font-size: 20pt; }
+h4 { font-size: 18pt; }
+/* p, h5, h6 { font-size: 16pt; } */
 

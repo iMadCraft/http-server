@@ -10,21 +10,29 @@ public interface HttpEndPointContext {
     Session session();
     Cookies cookies();
     Map<Object, Object> dataset();
+    HttpFlowController flow();
+    HttpHooks hooks();
 
     default HttpMethod method() { return request().method(); }
     default String path() { return request().path(); }
-
+    default String host() { return request().host(); }
+    default int port() { return request().port(); }
     static Builder builder() {
         return HttpEndPointContextImpl.builder();
     }
+
+
 
     interface Builder {
         Builder withRequest(HttpRequest request);
         Builder withResponseBuilder(HttpResponse.Builder response);
         Builder withCookies(Cookies cookies);
         Builder withSession(Session session);
+        Builder withFlowController(HttpFlowController flow);
+        Builder withHooks(HttpHooks hooks);
 
         HttpEndPointContext build();
+
     }
 }
 
@@ -33,13 +41,17 @@ class HttpEndPointContextImpl implements HttpEndPointContext {
     private final HttpResponse.Builder response;
     private final Cookies cookies;
     private final Session session;
+    private final HttpFlowController flow;
     private final Map<Object, Object> dataset = new HashMap<>();
+    private final HttpHooks hooks;
 
     public HttpEndPointContextImpl(Builder builder) {
         this.request = builder.request;
         this.response = builder.response;
         this.cookies = builder.cookies;
         this.session = builder.session;
+        this.flow = builder.flow;
+        this.hooks = builder.hooks;
     }
 
     @Override
@@ -67,6 +79,16 @@ class HttpEndPointContextImpl implements HttpEndPointContext {
         return this.dataset;
     }
 
+    @Override
+    public HttpFlowController flow() {
+        return this.flow;
+    }
+
+    @Override
+    public HttpHooks hooks() {
+        return this.hooks;
+    }
+
     static HttpEndPointContext.Builder builder() {
         return new Builder();
     }
@@ -76,6 +98,8 @@ class HttpEndPointContextImpl implements HttpEndPointContext {
         private HttpResponse.Builder response;
         public Cookies cookies;
         private Session session;
+        private HttpFlowController flow;
+        private HttpHooks hooks;
 
         @Override
         public Builder withRequest(HttpRequest request) {
@@ -98,6 +122,18 @@ class HttpEndPointContextImpl implements HttpEndPointContext {
         @Override
         public Builder withSession(Session session) {
             this.session = session;
+            return this;
+        }
+
+        @Override
+        public Builder withFlowController(HttpFlowController flow) {
+            this.flow = flow;
+            return this;
+        }
+
+        @Override
+        public HttpEndPointContext.Builder withHooks(HttpHooks hooks) {
+            this.hooks = hooks;
             return this;
         }
 

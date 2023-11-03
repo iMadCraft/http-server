@@ -1,5 +1,7 @@
 package com.kskb.se.http;
 
+import com.kskb.se.base.Nullable;
+
 public interface HttpErrorHandlerContext {
 
    static Builder builder() {

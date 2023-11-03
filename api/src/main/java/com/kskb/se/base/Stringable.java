@@ -1,3 +1,3 @@
-package com.kskb.se.http;
+package com.kskb.se.base;
 
 public @interface Stringable {}

@@ -1,5 +1,7 @@
 package com.kskb.se.http;
 
+import com.kskb.se.base.Stringable;
+
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;

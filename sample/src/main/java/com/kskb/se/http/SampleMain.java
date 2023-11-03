@@ -2,7 +2,6 @@ package com.kskb.se.http;
 
 import java.util.Date;
 import java.util.List;
-import java.util.Random;
 import java.util.function.Consumer;
 
 import static com.kskb.se.http.HttpMethod.GET;
@@ -12,6 +11,9 @@ public class SampleMain {
     public static void main(final String[] args) throws HttpServerException {
         final var locator = HttpResourceLocator.builder()
            .withDefaults("sample")
+           .addLocationFromEnv("HTTP_RESOURCE_LOCATIONS")
+           .addRemapFromEnv("HTTP_RESOURCE_REMAPS")
+           .addExternalFromEnv("HTTP_RESOURCE_EXTERNALS")
            .build();
 
         final HttpServerContext.Builder serverContext = HttpServerContext.builder()

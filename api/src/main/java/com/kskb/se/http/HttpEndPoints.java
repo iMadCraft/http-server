@@ -38,8 +38,7 @@ class HttpEndPointsImpl implements HttpEndPoints {
                     for (final String url: entry.url) {
                         // All match
                         if("*".equals(url)) {
-                            if (entry.url.contains(request.uri().getPath()))
-                                matches.add(entry.endPoint);
+                            matches.add(entry.endPoint);
                         }
                         // Wildcard match
                         else if( url.endsWith("*") ) {

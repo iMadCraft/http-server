@@ -6,24 +6,20 @@ import java.io.OutputStream;
 import java.net.Socket;
 
 public interface HttpConnection {
+    boolean keepAlive();
+    InputStream input();
+    OutputStream output();
+    void close() throws HttpServerException;
+    void setKeepAlive(boolean keepAlive);
 
     static Builder builder() {
         return HttpConnectionImpl.builder();
     }
 
-    InputStream input();
-
-    OutputStream output();
-
-    void close() throws HttpServerException;
-
     interface Builder {
         Builder withSocket(Socket socket);
-
         Builder withOutputStream(OutputStream outputStream);
-
         Builder withInputStream(InputStream inputStream);
-
         HttpConnection build();
     }
 }
@@ -33,6 +29,8 @@ class HttpConnectionImpl implements HttpConnection {
     private final OutputStream output;
     private final InputStream input;
 
+    private boolean keepAlive = false;
+
     public HttpConnectionImpl(Builder builder) {
         this.socket = builder.socket;
         this.output = builder.output;
@@ -41,6 +39,11 @@ class HttpConnectionImpl implements HttpConnection {
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    @Override
+    public boolean keepAlive() {
+        return this.keepAlive;
     }
 
     @Override
@@ -62,6 +65,11 @@ class HttpConnectionImpl implements HttpConnection {
         } catch (IOException e) {
             throw new HttpServerException("Unable to close the client resources", e);
         }
+    }
+
+    @Override
+    public void setKeepAlive(boolean keepAlive) {
+        this.keepAlive = keepAlive;
     }
 
     static class Builder implements HttpConnection.Builder {

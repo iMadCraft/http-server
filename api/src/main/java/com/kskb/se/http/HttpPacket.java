@@ -14,6 +14,9 @@ public interface HttpPacket {
         default boolean hasNotPayload() { return payload().isEmpty(); }
 
         T addHeader(HttpHeader httpHeader);
+        default T addHeader(String name, String value) {
+            return addHeader(HttpHeader.create(name, value));
+        }
 
         Builder withPayload(HttpResource payload);
         Builder withPayload(Optional<? extends HttpResource> payload);

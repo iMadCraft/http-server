@@ -1,5 +1,8 @@
 package com.kskb.se.http;
 
+import com.kskb.se.base.NotNull;
+import com.kskb.se.base.Nullable;
+
 import java.util.function.Consumer;
 
 public interface SessionManager {

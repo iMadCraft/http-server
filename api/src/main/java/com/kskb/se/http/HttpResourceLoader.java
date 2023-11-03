@@ -2,7 +2,12 @@ package com.kskb.se.http;
 
 import java.io.*;
 import java.lang.reflect.Method;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -19,6 +24,7 @@ public interface HttpResourceLoader {
 
 class HttpResourceLoaderImpl implements HttpResourceLoader {
    private final HttpResourceLocator locator;
+   private final Map<String, HttpResource> cache = new HashMap<>();
 
    HttpResourceLoaderImpl(HttpResourceLocator locator) {
      this.locator = locator;
@@ -41,6 +47,12 @@ class HttpResourceLoaderImpl implements HttpResourceLoader {
 
    @SuppressWarnings("unchecked")
    public <T extends HttpResource> T loadResource(Class<T> type, String name) {
+      Object cached = cache.get(name);
+      if (cached != null) {
+         System.out.printf("Loaded cached %.4096s resource%n", name);
+         return (T) cached;
+      }
+
       try {
          final var property = type.getAnnotation(HttpResourceProperty.class);
          final var location = property.location();
@@ -54,6 +66,27 @@ class HttpResourceLoaderImpl implements HttpResourceLoader {
                      .replaceAll("//", "/");
 
                   stream = HttpResourceLoader.class.getResourceAsStream(strippedPath);
+               }
+               else if (candidate.startsWith("http://") || candidate.startsWith("https://")) {
+                  // TODO: minor, Change the use of JDK http client
+                  //       to internal client, when implemented.
+                  // TODO: major, improve security.
+                  final java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                     .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                     .followRedirects(java.net.http.HttpClient.Redirect.NORMAL)
+                     .connectTimeout(Duration.ofSeconds(20))
+                     .build();
+                  final java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                     .GET()
+                     .timeout(Duration.ofSeconds(3))
+                     .uri(URI.create(candidate))
+                     .build();
+                  java.net.http.HttpResponse<String> response =
+                     client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+
+                  if (response.statusCode() >= 200 && response.statusCode() <= 210) {
+                     stream = new ByteArrayInputStream(response.body().getBytes(StandardCharsets.US_ASCII));
+                  }
                }
                else {
                   // TODO: major, Later also used for checking permissions
@@ -95,6 +128,7 @@ class HttpResourceLoaderImpl implements HttpResourceLoader {
             method = type.getMethod("create", byte[].class);
          }
          final Object obj = method.invoke(null, arg);
+         cache.put(name, (T) obj);
          return (T) obj;
       }
       catch (Exception ignored) {}

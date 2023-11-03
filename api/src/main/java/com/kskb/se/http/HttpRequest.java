@@ -12,12 +12,13 @@ public interface HttpRequest extends HttpPacket, Request {
 
     default String path() { return uri().getPath(); }
     default String query() { return uri().getQuery(); }
+    default int port() { return uri().getPort(); }
+    default String host() { return uri().getHost(); }
 
     default String extension() {
         final var parts = path().split("\\.");
         return parts.length > 1 ? parts[parts.length - 1] : null;
     }
-
 
     interface Builder extends HttpRequest, HttpPacket.Builder<Builder> {
         HttpRequest.Builder withMethod(HttpMethod method);

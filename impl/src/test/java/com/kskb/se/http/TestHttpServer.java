@@ -27,7 +27,9 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 
 public class TestHttpServer implements HttpErrorHandler {
-   private static final long TIMEOUT = 30000L;
+   private static final long TIMEOUT = 3000L;
+
+   record ClientResponse(byte[] buf, int size) {};
 
    private final ServerSocket socket = Mockito.mock();
    private final Socket clientSocket = Mockito.mock();
@@ -35,8 +37,10 @@ public class TestHttpServer implements HttpErrorHandler {
    private final InputStream clientInputStream = Mockito.mock();
    private final byte[] clientResponseBuffer = new byte[4096];
    private int endpointCounter = 0;
+   private List<ClientResponse> clientResponseBuffers = new ArrayList<>();
 
    private HttpServerImpl server;
+   private final SessionManagerMock sessionManager = new SessionManagerMock();
 
    private Throwable exception;
    private int expectedEndpointCount = 1;
@@ -50,6 +54,8 @@ public class TestHttpServer implements HttpErrorHandler {
          .thenReturn(clientOutputStream);
       when(clientSocket.getInputStream())
          .thenReturn(clientInputStream);
+      when(clientInputStream.available())
+         .thenReturn(1);
       doAnswer(invocation -> {
          final byte[] buf = invocation.getArgument(0);
          final int offset = invocation.getArgument(1);
@@ -61,6 +67,12 @@ public class TestHttpServer implements HttpErrorHandler {
          return null;
       }).when(clientOutputStream)
          .write(any(), anyInt(), anyInt());
+      doAnswer(invocation -> {
+         clientResponseBuffers.add(new ClientResponse(clientResponseBuffer.clone(), clientResponseBufferSize));
+         clientResponseBufferSize = 0;
+         return null;
+      }).when(clientOutputStream)
+         .close();
    }
 
    @After
@@ -147,7 +159,7 @@ public class TestHttpServer implements HttpErrorHandler {
          GET / HTTP/1.1
          Cookie: session={{ session_id }}
          
-         """.replace("{{ session_id }}", SessionManagerMock.SESSION_ID.toString())
+         """.replace("{{ session_id }}", SessionManagerMock.FIRST_SESSION_ID.toString())
       );
       server.add(GET, "/login", (context) -> {
          assertEndpointContext(context, GET, "/login");
@@ -162,6 +174,36 @@ public class TestHttpServer implements HttpErrorHandler {
       assertResponse();
    }
 
+   @Test(timeout = TIMEOUT)
+   public void testExpiredSessionRequest() throws Exception {
+      sessionManager.setCreationTime(0);
+      server = createHttpServer();
+      sendClientRequests(
+         // First request
+         """
+         GET /login HTTP/1.1
+         
+         """,
+         // Second request
+         """
+         GET / HTTP/1.1
+         Cookie: session={{ session_id }}
+         
+         """.replace("{{ session_id }}", SessionManagerMock.FIRST_SESSION_ID.toString())
+      );
+      server.add(GET, "/login", (context) -> {
+         assertEndpointContext(context, GET, "/login");
+         context.session().dataset().put("key", "value");
+      });
+      server.add(GET, "/", (context) -> {
+         assertEndpointContext(context, GET, "/");
+         assertNull(context.session().dataset().get("key"));
+      });
+      server.start();
+      server.stop();
+      assertResponse();
+   }
+
 
    @Override
    public void onException(HttpErrorHandlerContext context, Throwable t) {
@@ -170,14 +212,17 @@ public class TestHttpServer implements HttpErrorHandler {
 
    private void assertResponse() {
       assertEquals(endpointCounter, expectedEndpointCount);
-      final String response = new String(clientResponseBuffer, 0, clientResponseBufferSize, StandardCharsets.US_ASCII);
-      for (final var line: response.split("\r\n")) {
-         System.out.println("   " + line);
+      for (final var rawResponse: clientResponseBuffers) {
+         final String response = new String(rawResponse.buf, 0, rawResponse.size, StandardCharsets.US_ASCII);
+         System.out.println("Server Response:");
+         for (final var line: response.split("\r\n")) {
+            System.out.println("   " + line);
+         }
+         assertEquals(response.substring(0, 17), "HTTP/1.1 200 OK\r\n");
+         assertTrue(response.contains("Server: Demo Server\r\n"));
+         assertFalse(findResponseHeader(response, "Date").isEmpty());
+         assertTrue(response.contains("Content-Length: 0\r\n"));
       }
-      assertEquals(response.substring(0, 17), "HTTP/1.1 200 OK\r\n");
-      assertTrue(response.contains("Server: Demo Server\r\n"));
-      assertFalse(findResponseHeader(response, "Date").isEmpty());
-      assertTrue(response.contains("Content-Length: 0\r\n"));
    }
 
    private void sendClientRequests(String ... clientRequests) throws IOException {
@@ -234,7 +279,7 @@ public class TestHttpServer implements HttpErrorHandler {
    private HttpServerImpl createHttpServer() {
       HttpServerContext context = HttpServerContext.builder()
          .addErrorHandler(this)
-         .withSessionManager(new SessionManagerMock())
+         .withSessionManager(sessionManager)
          .build();
       return createHttpServer(context);
    }

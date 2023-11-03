@@ -1,5 +1,7 @@
 package com.kskb.se.http;
 
+import com.kskb.se.base.LoggerFactory;
+
 import javax.net.ssl.*;
 import java.io.IOException;
 import java.io.InputStream;
@@ -13,8 +15,12 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.*;
+
+import static java.util.logging.Level.FINE;
 
 class HttpServerImpl implements HttpServer {
+    private static final Logger LOG = LoggerFactory.getLogger(HttpServerImpl.class);
     private static final int MAX_ERROR = 10;
     private static final Map<String, Class<? extends HttpResource>> RESOURCE_MAP = new HashMap<>();
 
@@ -41,7 +47,7 @@ class HttpServerImpl implements HttpServer {
     private final boolean requireClientAuthentication;
     private final SessionManager sessionManager;
     private final HttpErrorHandlers errorHandlers;
-
+    private final HttpHooks hooks = HttpHooks.create();
 
     // Sensitive information will be sanitized after usage
     private char[] trustStorePassword;
@@ -96,12 +102,17 @@ class HttpServerImpl implements HttpServer {
 
     @Override
     public HttpResourceLoader resourceLoader() {
-        return loader;
+        return this.loader;
     }
 
     @Override
     public HttpServerState state() {
         return this.state;
+    }
+
+    @Override
+    public HttpHooks hooks() {
+        return this.hooks;
     }
 
     private void sanitize() {
@@ -158,11 +169,11 @@ class HttpServerImpl implements HttpServer {
         final ServerSocket serverSocket;
         try {
             if (trustStoreName != null && ! trustStoreName.isEmpty()) {
-                System.out.println("Starting https server listening to port " + port);
+                LOG.log(Level.INFO, () -> "Starting https server listening to port " + port);
                 serverSocket = createEncryptedServerSocket();
             }
             else {
-                System.out.println("Starting http server listening to port " + port);
+                LOG.log(Level.INFO, () -> "Starting http server listening to port " + port);
                 serverSocket = createUnencrypedServerSocket();
             }
         } catch (Exception e) {
@@ -176,6 +187,7 @@ class HttpServerImpl implements HttpServer {
         // Used for a simple infinite error-loop prevention,
         // reset after a successful attempt
         int errorCounter = 0;
+        HttpConnection connection = null;
 
         final HttpErrorHandlerContext.Builder errorBuilder = HttpErrorHandlerContext.builder();
 
@@ -186,39 +198,52 @@ class HttpServerImpl implements HttpServer {
         //    * Create response builder with server defaults
         //    * Find matching endpoints and forward request and responseBuilder
         while (isRunning()) {
-            HttpConnection connection = null;
             try {
                 // Reset state of error handler
                 errorBuilder.clear();
 
-                System.out.println("Listening to client ...");
-
-                // Blocking call. Wait until a client socket has been accepted
-                connection = accept();
+                if (connection != null && connection.keepAlive()) {
+                    LOG.log(Level.INFO, () -> "Relistening to client ...");
+                }
+                else {
+                    LOG.log(Level.INFO, () -> "Listening to client ...");
+                    // Blocking call. Wait until a client socket has been accepted
+                    connection = accept();
+                }
 
                 final var requestBuilder = HttpRequestImpl.builder();
                 final var responseBuilder = HttpResponseImpl.builder();
                 final var date = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss")
                    .format(Calendar.getInstance().getTime());
+                final var flow = HttpFlowController.create();
+                final var hooks = this.hooks.clone();
+
+                // Run initial hooks
+                if (flow.shouldInitialize()) {
+                    final var initialHookContext = HttpInitialHookContext.builder()
+                       .withFlowController(flow)
+                       .withRequest(requestBuilder)
+                       .withResponse(responseBuilder)
+                       .build();
+                    for (final HttpHook<HttpInitialHookContext> hook : hooks.byType(HttpInitialHookContext.class)) {
+                        hook.run(initialHookContext);
+
+                        if(flow.isInterrupted())
+                            break;
+                    }
+                }
 
                 // Parse incoming stream and populate request builder
-                if(parser.parse(requestBuilder, connection.input())) {
-                    System.out.println("Request " +
-                       requestBuilder.method().name() + " " + requestBuilder.uri());
-                }
-                else {
-                    // Error is handled by parser, just
-                    // continue with the next request
-                    continue;
-                }
-
-                // Execute all rewrites
-                final HttpRewriterContext rewriterContext = HttpRewriterContextImpl.builder()
-                   .withRequestBuilder(requestBuilder)
-                   .withResponseBuilder(responseBuilder)
-                   .build();
-                for(final HttpRewriter rewriter: rewriters) {
-                    rewriter.modify(rewriterContext);
+                if (flow.shouldParse()) {
+                    if(parser.parse(requestBuilder, connection.input())) {
+                        LOG.log(Level.INFO, () -> "Request " +
+                           requestBuilder.method().name() + " " + requestBuilder.uri());
+                    }
+                    else {
+                        // Error is handled by parser, just
+                        // continue with the next request
+                        continue;
+                    }
                 }
 
                 // Extract cookies from request
@@ -229,58 +254,96 @@ class HttpServerImpl implements HttpServer {
                 for (final var header: cookieHeaders) {
                     requestCookies.setAll(Cookie.from(header.value()));
                 }
-
-                // All modification to request should be final,
-                // Create request from builder
-                final HttpRequest request = requestBuilder
-                   .withCookies(requestCookies)
-                   .build();
-                errorBuilder.withRequest(request);
+                requestBuilder.withCookies(requestCookies);
 
                 // Find session
                 Session session = sessionManager.find(requestBuilder);
 
+                // Run validate hooks
+                if (flow.shouldValidate()) {
+                    final var validateHookContext = HttpValidateHookContext.builder()
+                       .withSession(session)
+                       .withFlowController(flow)
+                       .withRequest(requestBuilder)
+                       .withResponse(responseBuilder)
+                       .build();
+                    for (final HttpHook<HttpValidateHookContext> hook : hooks.byType(HttpValidateHookContext.class)) {
+                        hook.run(validateHookContext);
+
+                        if(flow.isInterrupted())
+                            break;
+                    }
+                }
+
+                // Execute all rewrites
+                if (flow.shouldRewrite()) {
+                    final HttpRewriterContext rewriterContext = HttpRewriterContextImpl.builder()
+                       .withRequestBuilder(requestBuilder)
+                       .withResponseBuilder(responseBuilder)
+                       .build();
+                    for (final HttpRewriter rewriter : rewriters) {
+                        rewriter.modify(rewriterContext);
+                    }
+                }
+
+                // All modification to request should be final,
+                // Create request from builder
+                final HttpRequest request = requestBuilder.build();
+                errorBuilder.withRequest(request);
+
                 // Populate with server defaults
                 responseBuilder
-                   .withResponseCode(200)
                    .addHeader(HttpHeader.create("Server", "Demo Server"))
                    // TODO: minor, remove CEST, should be extract from date
                    .addHeader(HttpHeader.create("Date", date + " CEST"));
+                if (responseBuilder.code() == 0)
+                    responseBuilder.withResponseCode(200);
 
                 // Find matching endpoints and execute
-                final HttpEndPointContext endPointContext = HttpEndPointContext.builder()
-                   .withRequest(request)
-                   .withResponseBuilder(responseBuilder)
-                   .withCookies(session.cookies())
-                   .withSession(session)
-                   .build();
-                final var matches = endPoints.match(request);
-                for(HttpEndPoint endPoint: matches) {
-                    try {
-                        endPoint.handle(endPointContext);
+                if (flow.shouldExecuteEndpoints()) {
+                    final HttpEndPointContext endPointContext = HttpEndPointContext.builder()
+                       .withRequest(request)
+                       .withResponseBuilder(responseBuilder)
+                       .withCookies(session.cookies())
+                       .withSession(session)
+                       .withFlowController(flow)
+                       .withHooks(hooks)
+                       .build();
+                    final var matches = endPoints.match(request);
+                    for (HttpEndPoint endPoint : matches) {
+                        try {
+                            endPoint.handle(endPointContext);
+                        } catch (Throwable t) {
+                            responseBuilder
+                               .withDetails(t.getMessage())
+                               .withResponseCode(500);
+                            LOG.log(FINE, "Endpoint " + endPoint + " throw a exception", t);
+                        }
+
+                        if (flow.isInterrupted())
+                            break;
                     }
-                    catch (Throwable t) {
-                        responseBuilder
-                           .withDetails(t.getMessage())
-                           .withResponseCode(500);
+
+                    // Check in case there was no match, then attempt to find default
+                    // resource loader. Otherwise, return 404
+                    if( ! matches.iterator().hasNext() || flow.shouldLoadResource()) {
+                        final var extension = request.extension();
+                        if (extension != null) {
+                            final var type = RESOURCE_MAP.get(request.extension());
+                            if (type != null) {
+                                final var resourceOpt = loader.load(type, request.path());
+                                if (resourceOpt.isPresent()) {
+                                    responseBuilder.withPayload(resourceOpt.get());
+                                }
+                                else {
+                                    responseBuilder.withResponseCode(404)
+                                       .withPayload(DEFAULT_PAGE_404);
+                                }
+                            }
+                        }
                     }
                 }
 
-                // Check in case there was no match, then attempt to find default
-                // resource loader. Otherwise, return 404
-                if( ! matches.iterator().hasNext() ) {
-                    final var type = RESOURCE_MAP.get(request.extension());
-                    if (type != null) {
-                        final var resourceOpt = loader.load(type, request.path());
-                        if (resourceOpt.isPresent()) {
-                           responseBuilder.withPayload(resourceOpt.get());
-                        }
-                        else {
-                            responseBuilder.withResponseCode(404)
-                               .withPayload(DEFAULT_PAGE_404);
-                        }
-                    }
-                }
                 // Check if any endpoint determined the request
                 // resource did not exists. Return 404.
                 else if (responseBuilder.code() == 404 && responseBuilder.hasNotPayload()) {
@@ -290,12 +353,31 @@ class HttpServerImpl implements HttpServer {
 
                 // Ask the cookie manager to determined which cookie should be
                 // part of the reply.
-                if (responseBuilder.code() >= 200 && responseBuilder.code() < 400)
-                   sessionManager.modified(session, request, responseBuilder);
+                if (responseBuilder.code() >= 200 && responseBuilder.code() < 400) {
+                    // Allow session manager to modify response
+                    sessionManager.modified(session, request, responseBuilder);
+
+                    // Convert all cookies to response headers
+                    for (final var cookie: session.cookies()) {
+                        responseBuilder
+                           .addHeader("Set-Cookie", cookie.toString());
+                    }
+                }
+
+                // Run post hooks
+                if (flow.shouldPostProcessing()) {
+                    final var postHookContext = HttpPostHookContext.builder()
+                       .withSession(session)
+                       .withResponse(responseBuilder)
+                       .build();
+                    for (final HttpHook<HttpPostHookContext> hook: hooks.byType(HttpPostHookContext.class)) {
+                        hook.run(postHookContext);
+                    }
+                }
 
                 final var response = responseBuilder.build();
                 errorBuilder.withResponse(response);
-                System.out.println("Respond with " + response.code());
+                LOG.log(Level.INFO, () -> "Respond with " + response.code());
 
                 // Serialize and send response back to client
                 serializer.serialize(connection.output(), response);
@@ -320,10 +402,10 @@ class HttpServerImpl implements HttpServer {
             finally {
                 // Always close connection before attempting
                 // to establish a new connection
-                if (connection != null) {
+                if ( connection != null && ! connection.keepAlive() ) {
                     connection.close();
+                    connection = null;
                 }
-                connection = null;
             }
         }
     }

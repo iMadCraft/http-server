@@ -51,10 +51,22 @@ class HttpBufferedReaderImpl implements HttpBufferedReader {
 
         final int size;
         try {
+            // final int availableBytes = stream.available();
+            // if (availableBytes <= 0) {
+            //     builder
+            //        .withMethod(HttpMethod.CONNECT)
+            //        .withUri(URI.create("localhost:8081"))
+            //        .withVersion("HTTP/1.1")
+            //        .addHeader(HttpHeader.create("Host", "localhost:8081"));
+            //    return Result.of(builder);
+            // }
+            // else
+            //     System.out.println("Available bytes " + availableBytes);
             // Sometimes a stream request with a no end terminations is sent.
             // Read the first block and probe result before continuing
             // reading the rest.
-            int rb = this.stream.read(buf, 0, BLOCK_SIZE);
+
+            int rb = stream.read(buf, 0, BLOCK_SIZE);
             if (rb == -1) {
                 return Result.error("Unable to read from stream");
             }
@@ -136,7 +148,8 @@ class HttpBufferedReaderImpl implements HttpBufferedReader {
             if (buf[i] == SPACE) {
                 try {
                     final String urlAsString = new String(buf, index, i - index, StandardCharsets.US_ASCII);
-                    final URI uri = new URI(urlAsString);
+                    // TODO: critical, replace hard-coded uri
+                    final URI uri = new URI("https://localhost:8081" + urlAsString);
                     builder.withUri(uri);
                 } catch (URISyntaxException e) {
                     return Result.error(e);

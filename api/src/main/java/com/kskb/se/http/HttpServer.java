@@ -12,6 +12,7 @@ public interface HttpServer {
     HttpRewriters rewriters();
     HttpEndPoints endPoints();
     HttpResourceLoader resourceLoader();
+    HttpHooks hooks();
 
     default boolean isRunning() {
         return this.state() == HttpServerState.RUNNING;
