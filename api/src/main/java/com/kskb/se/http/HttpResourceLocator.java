@@ -106,6 +106,7 @@ class HttpResourceLocatorImpl implements HttpResourceLocator {
                 addLocation(CSS, subProjectName + "/src/main");
             }
             addLocation(JAVASCRIPT, "resource:///htdocs");
+            addLocation(JAVASCRIPT, "src/main/js");
             if (subProjectName != null) {
                 addLocation(JAVASCRIPT, subProjectName + "/src/3pp");
                 addLocation(JAVASCRIPT, subProjectName + "/src/main");

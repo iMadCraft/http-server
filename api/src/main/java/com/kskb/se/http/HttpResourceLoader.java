@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static com.kskb.se.http.HttpResourceType.TEXT;
 
@@ -17,8 +18,8 @@ public interface HttpResourceLoader {
    <T extends HttpResource> Optional<T> load(Class<T> type, String name);
    <T extends HttpResource> Optional<T> load(Class<T> type, String name, Consumer<T> newResource);
 
-   static HttpResourceLoader create(HttpResourceLocator locator) {
-      return new HttpResourceLoaderImpl(locator);
+   static HttpResourceLoader create(HttpResourceLocator locator, HttpConfig config) {
+      return new HttpResourceLoaderImpl(locator, config);
    }
 }
 
@@ -26,8 +27,13 @@ class HttpResourceLoaderImpl implements HttpResourceLoader {
    private final HttpResourceLocator locator;
    private final Map<String, HttpResource> cache = new HashMap<>();
 
-   HttpResourceLoaderImpl(HttpResourceLocator locator) {
+   private final Supplier<Boolean> isCacheEnabled;
+
+   HttpResourceLoaderImpl(HttpResourceLocator locator, HttpConfig config) {
      this.locator = locator;
+
+     final var isCacheEnabledEnv = System.getenv("HTTP_RESOURCE_LOADER_CACHE");
+     isCacheEnabled = config.getBoolean("resource.loader.cache", ! "false".equals(isCacheEnabledEnv));
    }
 
    @Override
@@ -128,7 +134,8 @@ class HttpResourceLoaderImpl implements HttpResourceLoader {
             method = type.getMethod("create", byte[].class);
          }
          final Object obj = method.invoke(null, arg);
-         cache.put(name, (T) obj);
+         if (isCacheEnabled.get())
+            cache.put(name, (T) obj);
          return (T) obj;
       }
       catch (Exception ignored) {}

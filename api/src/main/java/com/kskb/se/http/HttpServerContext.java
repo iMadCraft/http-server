@@ -28,9 +28,9 @@ public interface HttpServerContext {
     HttpErrorHandlers errorHandlers();
     SessionManager sessionManager();
 
+    HttpConfig config();
     Optional<HttpParser> parser();
     Optional<HttpSerializer> serializer();
-
 
     interface Builder {
         Builder withPort(int port);
@@ -39,7 +39,7 @@ public interface HttpServerContext {
         Builder withTrustStorePassword(char[] password);
         Builder withKeyStore(String path);
         Builder withKeyStorePassword(char[] password);
-
+        Builder withConfig(HttpConfig config);
         Builder withLocator(HttpResourceLocator resourceLocator);
         Builder addErrorHandler(HttpErrorHandler testHttpServer);
         Builder withSessionManager(SessionManager sessionManager);
@@ -60,6 +60,7 @@ class HttpServerContextImpl implements HttpServerContext {
     private final char[] keyStorePassword;
     private final String tlsVersion = "TLSv1.2";
 
+    private final HttpConfig config;
     private final HttpParser parser;
     private final HttpSerializer serializer;
     private final HttpResourceLocator locator;
@@ -73,6 +74,7 @@ class HttpServerContextImpl implements HttpServerContext {
         this.trustStorePassword = builder.trustStorePassword;
         this.keyStoreName = builder.keyStoreName;
         this.keyStorePassword = builder.keyStorePassword;
+        this.config = builder.config;
         this.parser = builder.parser;
         this.serializer = builder.serializer;
         this.locator = builder.locator;
@@ -131,6 +133,9 @@ class HttpServerContextImpl implements HttpServerContext {
     }
 
     @Override
+    public HttpConfig config() { return config; }
+
+    @Override
     public Optional<HttpParser> parser() {
         return Optional.ofNullable(this.parser);
     }
@@ -168,6 +173,7 @@ class HttpServerContextImpl implements HttpServerContext {
         private String keyStoreName;
         private char[] keyStorePassword;
 
+        private HttpConfig config;
         private HttpParser parser;
         private HttpSerializer serializer;
         private HttpResourceLocator locator;
@@ -206,6 +212,12 @@ class HttpServerContextImpl implements HttpServerContext {
         }
 
         @Override
+        public HttpServerContext.Builder withConfig(HttpConfig config) {
+            this.config = config;
+            return this;
+        }
+
+        @Override
         public HttpServerContext.Builder withLocator(HttpResourceLocator resourceLocator) {
             this.locator = resourceLocator;
             return this;
@@ -227,10 +239,12 @@ class HttpServerContextImpl implements HttpServerContext {
         public HttpServerContext build() {
             if (this.errorHandlers.isEmpty())
                 this.errorHandlers.add(new HttpConsoleLogger());
+            this.config = this.config != null ? this.config :
+               HttpConfig.create();
             this.locator = this.locator != null ? this.locator :
                HttpResourceLocator.builder().withDefaults("impl").build();
             this.loader = this.loader != null ? this.loader :
-               HttpResourceLoader.create(this.locator);
+               HttpResourceLoader.create(this.locator, config);
             return new HttpServerContextImpl(this);
         }
     }

@@ -182,7 +182,6 @@ class HttpServerImpl implements HttpServer {
         return serverSocket;
     }
 
-
     private void run() throws HttpServerException {
         // Used for a simple infinite error-loop prevention,
         // reset after a successful attempt
@@ -299,6 +298,10 @@ class HttpServerImpl implements HttpServer {
                 if (responseBuilder.code() == 0)
                     responseBuilder.withResponseCode(200);
 
+                // Only GET should attempt to automatically try to load resources,
+                // this will be overridden by FlowController if set
+                boolean shouldLoadResourceByDefault = HttpMethod.GET == requestBuilder.method();
+
                 // Find matching endpoints and execute
                 if (flow.shouldExecuteEndpoints()) {
                     final HttpEndPointContext endPointContext = HttpEndPointContext.builder()
@@ -324,29 +327,40 @@ class HttpServerImpl implements HttpServer {
                             break;
                     }
 
-                    // Check in case there was no match, then attempt to find default
-                    // resource loader. Otherwise, return 404
-                    if( ! matches.iterator().hasNext() || flow.shouldLoadResource()) {
-                        final var extension = request.extension();
-                        if (extension != null) {
-                            final var type = RESOURCE_MAP.get(request.extension());
-                            if (type != null) {
-                                final var resourceOpt = loader.load(type, request.path());
-                                if (resourceOpt.isPresent()) {
-                                    responseBuilder.withPayload(resourceOpt.get());
-                                }
-                                else {
-                                    responseBuilder.withResponseCode(404)
-                                       .withPayload(DEFAULT_PAGE_404);
-                                }
-                            }
+                    if (matches.iterator().hasNext()) {
+                        shouldLoadResourceByDefault = false;
+                    }
+                }
+
+                // Set default value for loading of resource, if not already
+                // set by FlowController
+                if (flow.shouldLoadResource() == null) {
+                    flow.setLoadResource(shouldLoadResourceByDefault);
+                }
+
+                // Check in case there was no match, then attempt to find default
+                // resource loader. Otherwise, return 404
+                if(flow.shouldLoadResource()) {
+                    final var extension = request.extension() != null ?
+                       request.extension() : "html";
+                    final var type = RESOURCE_MAP.get(extension);
+                    if (type != null) {
+                        //final var path = request.path().endsWith("/") ?
+                        //   request.path() + "index.html" :
+                        final var resourceOpt = loader.load(type, request.path());
+                        if (resourceOpt.isPresent()) {
+                            responseBuilder.withPayload(resourceOpt.get());
+                        }
+                        else {
+                            responseBuilder.withResponseCode(404)
+                               .withPayload(DEFAULT_PAGE_404);
                         }
                     }
                 }
 
                 // Check if any endpoint determined the request
                 // resource did not exists. Return 404.
-                else if (responseBuilder.code() == 404 && responseBuilder.hasNotPayload()) {
+                if (responseBuilder.code() == 404 && responseBuilder.hasNotPayload()) {
                     responseBuilder
                        .withPayload(DEFAULT_PAGE_404);
                 }
@@ -368,6 +382,7 @@ class HttpServerImpl implements HttpServer {
                 if (flow.shouldPostProcessing()) {
                     final var postHookContext = HttpPostHookContext.builder()
                        .withSession(session)
+                       .withRequest(request)
                        .withResponse(responseBuilder)
                        .build();
                     for (final HttpHook<HttpPostHookContext> hook: hooks.byType(HttpPostHookContext.class)) {

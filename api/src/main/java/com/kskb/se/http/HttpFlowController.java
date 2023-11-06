@@ -1,8 +1,6 @@
 package com.kskb.se.http;
 
 public interface HttpFlowController {
-   void stop();
-   void stillLoadResource();
 
    boolean isInterrupted();
 
@@ -11,16 +9,22 @@ public interface HttpFlowController {
    boolean shouldValidate();
    boolean shouldRewrite();
    boolean shouldExecuteEndpoints();
-   boolean shouldLoadResource();
+   Boolean shouldLoadResource();
    boolean shouldPostProcessing();
+
+   void stop();
+   void stillLoadResource();
+   void stopLoadResource();
 
    static HttpFlowController create() {
       return new HttpFlowControllerImpl();
    }
+
+   void setLoadResource(boolean shouldLoadResourceByDefault);
 }
 
 class HttpFlowControllerImpl implements HttpFlowController {
-   private boolean loadResource = false;
+   private Boolean loadResource = null;
    private boolean interrupted = false;
    private boolean initialize = true;
    private boolean parse = true;
@@ -43,6 +47,11 @@ class HttpFlowControllerImpl implements HttpFlowController {
    @Override
    public void stillLoadResource() {
       loadResource = true;
+   }
+
+   @Override
+   public void stopLoadResource() {
+      loadResource = false;
    }
 
    @Override
@@ -76,12 +85,17 @@ class HttpFlowControllerImpl implements HttpFlowController {
    }
 
    @Override
-   public boolean shouldLoadResource() {
+   public Boolean shouldLoadResource() {
       return this.loadResource;
    }
 
    @Override
    public boolean shouldPostProcessing() {
       return post;
+   }
+
+   @Override
+   public void setLoadResource(boolean loadResource) {
+      this.loadResource = loadResource;
    }
 }
