@@ -2,6 +2,7 @@ package com.kskb.se.http;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
 
 public interface HttpEndPointContext {
     HttpRequest request();
@@ -12,6 +13,7 @@ public interface HttpEndPointContext {
     Map<Object, Object> dataset();
     HttpFlowController flow();
     HttpHooks hooks();
+    Matcher matcher();
 
     default HttpMethod method() { return request().method(); }
     default String path() { return request().path(); }
@@ -30,6 +32,7 @@ public interface HttpEndPointContext {
         Builder withSession(Session session);
         Builder withFlowController(HttpFlowController flow);
         Builder withHooks(HttpHooks hooks);
+        Builder withMatcher(Matcher matcher);
 
         HttpEndPointContext build();
 
@@ -44,6 +47,7 @@ class HttpEndPointContextImpl implements HttpEndPointContext {
     private final HttpFlowController flow;
     private final Map<Object, Object> dataset = new HashMap<>();
     private final HttpHooks hooks;
+    private final Matcher matcher;
 
     public HttpEndPointContextImpl(Builder builder) {
         this.request = builder.request;
@@ -52,6 +56,7 @@ class HttpEndPointContextImpl implements HttpEndPointContext {
         this.session = builder.session;
         this.flow = builder.flow;
         this.hooks = builder.hooks;
+        this.matcher = builder.matcher;
     }
 
     @Override
@@ -89,6 +94,11 @@ class HttpEndPointContextImpl implements HttpEndPointContext {
         return this.hooks;
     }
 
+    @Override
+    public Matcher matcher() {
+        return this.matcher;
+    }
+
     static HttpEndPointContext.Builder builder() {
         return new Builder();
     }
@@ -100,6 +110,7 @@ class HttpEndPointContextImpl implements HttpEndPointContext {
         private Session session;
         private HttpFlowController flow;
         private HttpHooks hooks;
+        private Matcher matcher;
 
         @Override
         public Builder withRequest(HttpRequest request) {
@@ -132,8 +143,14 @@ class HttpEndPointContextImpl implements HttpEndPointContext {
         }
 
         @Override
-        public HttpEndPointContext.Builder withHooks(HttpHooks hooks) {
+        public Builder withHooks(HttpHooks hooks) {
             this.hooks = hooks;
+            return this;
+        }
+
+        @Override
+        public Builder withMatcher(Matcher matcher) {
+            this.matcher = matcher;
             return this;
         }
 

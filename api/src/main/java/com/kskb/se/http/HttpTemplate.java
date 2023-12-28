@@ -53,8 +53,9 @@ abstract class AbstractHttpTemplate implements HttpTemplate {
       String transformed = template;
       for (Map.Entry<String, Object> entry: binds.entrySet()) {
          final var value = entry.getValue();
-         final var valueAsString = value instanceof Supplier<?> ?
-            ((Supplier<?>)value).get().toString() : value.toString();
+         final var valueAsString = value == null ? "" :
+            value instanceof Supplier<?> ?
+               ((Supplier<?>)value).get().toString() : value.toString();
          transformed = transformed.replace("{{ " + entry.getKey() + " }}", valueAsString);
       }
       return transformed;

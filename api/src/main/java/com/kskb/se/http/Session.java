@@ -25,6 +25,8 @@ public interface Session {
    }
 
    default Object put(Object key, Object value) { return dataset().put(key, value); }
+   default Object remove(Object key) { return dataset().remove(key); }
+
    default boolean hasExpired() {
       return ( accessTime() - creationTime() ) >= maxAge();
    }

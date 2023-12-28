@@ -1,5 +1,7 @@
 package com.kskb.se.http;
 
+import java.io.PrintStream;
+
 public interface HttpFlowController {
 
    boolean isInterrupted();
@@ -11,13 +13,19 @@ public interface HttpFlowController {
    boolean shouldExecuteEndpoints();
    Boolean shouldLoadResource();
    boolean shouldPostProcessing();
+   boolean shouldTrace();
+
+   PrintStream out();
 
    void stop();
    void stillLoadResource();
    void stopLoadResource();
 
-   static HttpFlowController create() {
-      return new HttpFlowControllerImpl();
+   static HttpFlowController create(final HttpConfig config) {
+      final String propTrace = config.getString("http.request.trace").get();
+      final var flow = new HttpFlowControllerImpl();
+      flow.trace = "ALL".equals(propTrace);
+      return flow;
    }
 
    void setLoadResource(boolean shouldLoadResourceByDefault);
@@ -31,7 +39,9 @@ class HttpFlowControllerImpl implements HttpFlowController {
    private boolean validate = true;
    private boolean rewrite = true;
    private boolean endpoints = true;
-   private boolean post = true;
+   private boolean post = true; 
+   boolean trace = false;
+   private PrintStream outstream = System.out;
 
    @Override
    public void stop() {
@@ -92,6 +102,14 @@ class HttpFlowControllerImpl implements HttpFlowController {
    @Override
    public boolean shouldPostProcessing() {
       return post;
+   }
+
+   public boolean shouldTrace() {
+      return trace;
+   }
+
+   public PrintStream out() {
+      return outstream;
    }
 
    @Override

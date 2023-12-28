@@ -1,6 +1,7 @@
 package com.kskb.se.http;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 public interface HttpServer {
     int DEFAULT_PORT = 8081;
@@ -19,10 +20,10 @@ public interface HttpServer {
     }
 
     default void add(HttpMethod method, String path, HttpEndPoint handler) {
-        this.endPoints().add(method, List.of(path), handler);
+        this.endPoints().add(method, List.of(Pattern.compile(path)), handler);
     }
 
     default void add(HttpMethod method, List<String> url, HttpEndPoint handler) {
-        this.endPoints().add(method, url, handler);
+        this.endPoints().add(method, url.stream().map(Pattern::compile).toList(), handler);
     }
 }

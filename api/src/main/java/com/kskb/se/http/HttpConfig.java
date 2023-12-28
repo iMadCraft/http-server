@@ -1,6 +1,8 @@
 package com.kskb.se.http;
 
 import java.util.Hashtable;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.function.Supplier;
 
 public interface HttpConfig {
@@ -12,6 +14,8 @@ public interface HttpConfig {
    Supplier<String> getString(String key);
    Supplier<String> getString(String key, String def);
 
+   <K extends String, V extends Object> void setAll(Map<K, V> pairs);
+   
    static HttpConfig create() {
       return new HttpConfigImpl();
    }
@@ -32,10 +36,16 @@ class HttpConfigValue<T> implements Supplier<T> {
    public synchronized T get() {
       return value;
    }
+
+   @Override
+   public String toString() {
+      return value.toString();
+   }
 }
 
 class HttpConfigImpl implements  HttpConfig {
    private final Hashtable<String, HttpConfigValue<?>> map = new Hashtable<>();
+
 
    @Override
    public void setBoolean(String key, Boolean value) { set(key, value); }
@@ -56,7 +66,8 @@ class HttpConfigImpl implements  HttpConfig {
 
    @Override
    public Supplier<String> getString(String key) {
-      return get(key, String.class);
+      final var value = get(key, String.class);
+      return value;
    }
 
    @Override
@@ -65,14 +76,29 @@ class HttpConfigImpl implements  HttpConfig {
       return get(key, String.class);
    }
 
+   @Override
+   public <K extends String, V extends Object> void setAll(Map<K, V> pairs) {
+      for (final var pair: pairs.entrySet()) {
+         final var key = pair.getKey().toString();
+         final var value = pair.getValue();
+         set(key, value);
+      }
+   }
+
    @SuppressWarnings("unchecked")
    private <T> Supplier<T> get(String key, Class<T> type) {
-      final var entryValue = map.get(key);
-      if (entryValue == null)
-         throw new NullPointerException();
+      final HttpConfigValue<?> entryValue = map.get(key);
+      if (entryValue == null) {
+         if (String.class.equals(type)) {
+            return set(key, (T) System.getProperty(key));
+         }
+         else {
+            return set(key, null);
+         }
+      }
 
       final var value = entryValue.get();
-      if ( ! type.isInstance(value) )  {
+      if ( value != null && ! type.isInstance(value ) ) {
          throw new IllegalStateException();
       }
 
@@ -80,14 +106,16 @@ class HttpConfigImpl implements  HttpConfig {
    }
 
    @SuppressWarnings("unchecked")
-   private <T> void set(String key, T value) {
-      final HttpConfigValue<T> entryValue = (HttpConfigValue<T>) map.get(key);
+   private <T> HttpConfigValue<T> set(String key, T value) {
+      HttpConfigValue<T> entryValue = (HttpConfigValue<T>) map.get(key);
       if (entryValue != null) {
          entryValue.set(value);
       }
       else {
-         map.put(key, new HttpConfigValue<>(value));
+         entryValue = new HttpConfigValue<>(value);
+         map.put(key, entryValue);
       }
+      return entryValue;
    }
 
    private <T> void setIfMissing(String key, T value) {

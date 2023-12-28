@@ -142,19 +142,16 @@ class HttpBufferedReaderImpl implements HttpBufferedReader {
         }
 
         // section-block: Read url
+        final String urlPath;
+        // TODO: critical, replace hard-coded uri
+        String urlHost = "localhost";
+        String urlPort = "80";
         {
             i = index;
             while ( i < size && buf[i] != SPACE ) i++;
             if (buf[i] == SPACE) {
-                try {
-                    final String urlAsString = new String(buf, index, i - index, StandardCharsets.US_ASCII);
-                    // TODO: critical, replace hard-coded uri
-                    final URI uri = new URI("https://localhost:8081" + urlAsString);
-                    builder.withUri(uri);
-                } catch (URISyntaxException e) {
-                    return Result.error(e);
-                }
-                index = i;
+                 urlPath = new String(buf, index, i - index, StandardCharsets.US_ASCII);
+                 index = i;
             }
             else {
                 return Result.error(UnknownRequest.create(Arrays.copyOf(buf, size)));
@@ -195,7 +192,25 @@ class HttpBufferedReaderImpl implements HttpBufferedReader {
                 while (i < (size + 1) && buf[i] != CARRIER_RETURN && buf[i + 1] != LINE_FEED) i++;
                 if (buf[i] == CARRIER_RETURN) {
                     value = new String(buf, index, i - index, StandardCharsets.US_ASCII);
-                    builder.addHeader(HttpHeader.create(name, value));
+                    final var header = HttpHeader.create(name, value);
+                    builder.addHeader(header);
+
+                    // Extra Header Logic
+                    if("Host".equals(name)) {
+                        final var portStartIndex = value.indexOf(":");
+                        final var firstSlashIndex = value.indexOf("/");
+                        final var portEndIndex = firstSlashIndex >= 0 ? 
+                           firstSlashIndex : value.length();
+                        if (portStartIndex >= 0) {
+                           urlHost = value.substring(0, portStartIndex);
+                           urlPort = value.substring(portStartIndex, portEndIndex);                        
+                        }
+                        else {
+                           urlHost = value.substring(0, portStartIndex);
+                           urlPort = value.substring(portEndIndex);                        
+                        }
+                    }
+
                     index = i + 2;
                 } else {
                     return Result.error(UnknownRequest.create(Arrays.copyOf(buf, size)));
@@ -204,6 +219,15 @@ class HttpBufferedReaderImpl implements HttpBufferedReader {
             }
             index = i + 2;
         }
+
+        final String slashedUrlPath = urlPath.startsWith("/") ?
+           urlPath : "/" + urlPath;
+        final String commaedUrlPort = urlPort.startsWith(":") ?
+           urlPort : ":" + urlPort;
+
+        URI uri = URI.create("https://" + urlHost + commaedUrlPort + slashedUrlPath);
+        System.out.println("Request URI: " + uri.toString());
+        builder.withUri(uri);
 
         if (index < size) {
             final HttpHeader contentLength = builder.headers().stream()

@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.*;
+import java.util.regex.Matcher;
 
 import static java.util.logging.Level.FINE;
 
@@ -30,6 +31,8 @@ class HttpServerImpl implements HttpServer {
         RESOURCE_MAP.put("js", HttpScript.class);
         RESOURCE_MAP.put("ico", HttpIconImage.class);
     }
+
+    private final HttpConfig config;
 
     private final int port;
     private final int backlog;
@@ -57,6 +60,7 @@ class HttpServerImpl implements HttpServer {
     private ServerSocket serverSocket;
 
     HttpServerImpl(HttpServerContext context) {
+        this.config = context.config();
         this.port = context.port();
         this.backlog = context.backlog();
         this.addr = context.addr();
@@ -214,7 +218,7 @@ class HttpServerImpl implements HttpServer {
                 final var responseBuilder = HttpResponseImpl.builder();
                 final var date = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss")
                    .format(Calendar.getInstance().getTime());
-                final var flow = HttpFlowController.create();
+                final var flow = HttpFlowController.create(config);
                 final var hooks = this.hooks.clone();
 
                 // Run initial hooks
@@ -237,6 +241,14 @@ class HttpServerImpl implements HttpServer {
                     if(parser.parse(requestBuilder, connection.input())) {
                         LOG.log(Level.INFO, () -> "Request " +
                            requestBuilder.method().name() + " " + requestBuilder.uri());
+                        if(flow.shouldTrace()) {
+                           flow.out().println("< " + requestBuilder.method().name() 
+                                 + " " + requestBuilder.uri().getPath() 
+                                 + " " + requestBuilder.version());
+                           for(final HttpHeader header: requestBuilder.headers()) {
+                              flow.out().println("< " + header.name() + ": " + header.value());
+                           }
+                        }
                     }
                     else {
                         // Error is handled by parser, just
@@ -304,17 +316,20 @@ class HttpServerImpl implements HttpServer {
 
                 // Find matching endpoints and execute
                 if (flow.shouldExecuteEndpoints()) {
-                    final HttpEndPointContext endPointContext = HttpEndPointContext.builder()
+                    final HttpEndPointContext.Builder endPointContextBuilder = HttpEndPointContext.builder()
                        .withRequest(request)
                        .withResponseBuilder(responseBuilder)
                        .withCookies(session.cookies())
                        .withSession(session)
                        .withFlowController(flow)
-                       .withHooks(hooks)
-                       .build();
+                       .withHooks(hooks);
                     final var matches = endPoints.match(request);
-                    for (HttpEndPoint endPoint : matches) {
+                    for (Map.Entry<Matcher, HttpEndPoint> entry : matches) {
+                        final var endPoint = entry.getValue();
                         try {
+                            final var endPointContext = endPointContextBuilder
+                               .withMatcher(entry.getKey())
+                               .build();
                             endPoint.handle(endPointContext);
                         } catch (Throwable t) {
                             responseBuilder

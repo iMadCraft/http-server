@@ -53,7 +53,7 @@ public class Cookie {
       final var cookies = value.split(";");
       for (final var cookie: cookies) {
          final var pair = cookie.split("=");
-         result.add(new Cookie(pair[0], pair[1]));
+         result.add(new Cookie(pair[0].stripLeading(), pair[1]));
       }
       return result;
    }

@@ -1,60 +1,46 @@
 package com.kskb.se.http;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static com.kskb.se.base.Strings.join;
+import static com.kskb.se.base.Strings.substring;
 
 public interface HttpEndPoints extends Iterable<HttpEndPoint> {
-    void add(HttpMethod method, List<String> url, HttpEndPoint handler);
+    void add(HttpMethod method, List<Pattern> url, HttpEndPoint handler);
 
     static HttpEndPoints create() {
         return new HttpEndPointsImpl();
     }
 
-    Iterable<HttpEndPoint> match(HttpRequest request);
+    Iterable<Map.Entry<Matcher, HttpEndPoint>> match(HttpRequest request);
 }
 
 class HttpEndPointsImpl implements HttpEndPoints {
     final List<EndPointEntry> entryList = new ArrayList<>();
 
     @Override
-    public Iterable<HttpEndPoint> match(HttpRequest request) {
-        List<HttpEndPoint> matches = new ArrayList<>();
+    public Iterable<Map.Entry<Matcher, HttpEndPoint>> match(HttpRequest request) {
+        Map<Matcher, HttpEndPoint> matches = new HashMap<>();
 
         // Direct matching
         for (EndPointEntry entry: entryList) {
-            final boolean condition =
-               entry.method == request.method() &&
-                  entry.url.contains(request.uri().getPath());
-            if(condition)
-                matches.add(entry.endPoint);
-        }
-
-        // Wildcard matching, if no direct matching found
-        if (matches.isEmpty()) {
-            for (EndPointEntry entry: entryList) {
-                if (entry.method == request.method()) {
-                    for (final String url: entry.url) {
-                        // All match
-                        if("*".equals(url)) {
-                            matches.add(entry.endPoint);
-                        }
-                        // Wildcard match
-                        else if( url.endsWith("*") ) {
-                            final String trimmedUrl = url.substring(0, url.length() - 2);
-                            if(request.uri().getPath().startsWith(trimmedUrl))
-                                matches.add(entry.endPoint);
-                        }
+            if(entry.method == request.method()) {
+                for (final var pattern: entry.url) {
+                    final var matcher = pattern.matcher(request.path());
+                    if(matcher.matches()) {
+                        matches.put(matcher, entry.endPoint);
                     }
                 }
             }
         }
-        return Collections.unmodifiableList(matches);
+
+        return matches.entrySet();
     }
 
     @Override
-    public void add(HttpMethod method, List<String> url, HttpEndPoint handler) {
+    public void add(HttpMethod method, List<Pattern> url, HttpEndPoint handler) {
         this.entryList.add(new EndPointEntry(method, Collections.unmodifiableList(url), handler));
     }
 
@@ -65,5 +51,5 @@ class HttpEndPointsImpl implements HttpEndPoints {
            .iterator();
     }
 
-    private record EndPointEntry(HttpMethod method, List<String> url, HttpEndPoint endPoint) {}
+    private record EndPointEntry(HttpMethod method, List<Pattern> url, HttpEndPoint endPoint) {}
 }

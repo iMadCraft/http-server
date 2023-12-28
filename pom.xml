@@ -19,6 +19,7 @@
         <module>impl</module>
         <module>cli</module>
         <module>sample</module>
+        <module>web</module>
     </modules>
 
     <dependencyManagement>
